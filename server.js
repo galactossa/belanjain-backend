@@ -25,6 +25,7 @@ const notifikasiRoutes = require("./routes/notifikasi");
 const laporanRoutes = require("./routes/laporan");
 const transaksiRoutes = require("./routes/transaksi");
 const statistikRoutes = require("./routes/statistik");
+const trustScoreRoutes = require("./routes/trustScore");
 
 // Gunakan routes
 app.use("/api/pengguna", penggunaRoutes);
@@ -41,6 +42,7 @@ app.use("/api/notifikasi", notifikasiRoutes);
 app.use("/api/laporan", laporanRoutes);
 app.use("/api/transaksi", transaksiRoutes);
 app.use("/api/statistik", statistikRoutes);
+app.use("/api/trust-score", trustScoreRoutes);
 
 // Test route
 app.get("/", (req, res) => {
@@ -61,6 +63,7 @@ app.get("/", (req, res) => {
       laporan: "/api/laporan",
       transaksi: "/api/transaksi",
       statistik: "/api/statistik",
+      trustScore: "/api/trust-score",
     },
   });
 });
