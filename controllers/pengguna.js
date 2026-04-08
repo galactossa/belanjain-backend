@@ -1,6 +1,10 @@
 const pool = require("../db/db");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
-// GET semua pengguna dengan PAGINATION
+const JWT_SECRET = process.env.JWT_SECRET || "rahasia_default_ganti_nanti";
+
+// ========== GET semua pengguna (dengan pagination) ==========
 const getAllPengguna = async (req, res) => {
   const { page = 1, limit = 10, role } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -43,7 +47,7 @@ const getAllPengguna = async (req, res) => {
   }
 };
 
-// GET pengguna by ID (tanpa pagination)
+// ========== GET pengguna by ID ==========
 const getPenggunaById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -61,7 +65,7 @@ const getPenggunaById = async (req, res) => {
   }
 };
 
-// POST registrasi pengguna
+// ========== REGISTRASI (dengan hash password) ==========
 const register = async (req, res) => {
   const { nama, email, password, telepon } = req.body;
 
@@ -72,6 +76,7 @@ const register = async (req, res) => {
   }
 
   try {
+    // Cek apakah email sudah terdaftar
     const cekEmail = await pool.query(
       "SELECT * FROM pengguna WHERE email = $1",
       [email],
@@ -80,9 +85,12 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "Email sudah terdaftar" });
     }
 
+    // Hash password (acak) sebelum disimpan
+    const hashedPassword = await bcrypt.hash(password, 10);
+
     const result = await pool.query(
       "INSERT INTO pengguna (nama, email, password, telepon) VALUES ($1, $2, $3, $4) RETURNING id_pengguna, nama, email, role",
-      [nama, email, password, telepon],
+      [nama, email, hashedPassword, telepon],
     );
     res
       .status(201)
@@ -93,7 +101,7 @@ const register = async (req, res) => {
   }
 };
 
-// POST login
+// ========== LOGIN (verifikasi password + buat token) ==========
 const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -102,6 +110,7 @@ const login = async (req, res) => {
   }
 
   try {
+    // Cari user berdasarkan email
     const result = await pool.query("SELECT * FROM pengguna WHERE email = $1", [
       email,
     ]);
@@ -110,16 +119,32 @@ const login = async (req, res) => {
     }
 
     const pengguna = result.rows[0];
-    if (pengguna.password !== password) {
+
+    // Bandingkan password yang dikirim dengan yang sudah di-hash di database
+    const validPassword = await bcrypt.compare(password, pengguna.password);
+    if (!validPassword) {
       return res.status(401).json({ message: "Email atau password salah" });
     }
 
+    // Cek apakah akun masih aktif
     if (!pengguna.aktif) {
       return res.status(403).json({ message: "Akun anda telah dinonaktifkan" });
     }
 
+    // Buat JWT Token
+    const token = jwt.sign(
+      {
+        id: pengguna.id_pengguna,
+        email: pengguna.email,
+        role: pengguna.role,
+      },
+      JWT_SECRET,
+      { expiresIn: "7d" }, // Token berlaku 7 hari
+    );
+
     res.json({
       message: "Login berhasil",
+      token: token,
       pengguna: {
         id_pengguna: pengguna.id_pengguna,
         nama: pengguna.nama,
@@ -134,7 +159,7 @@ const login = async (req, res) => {
   }
 };
 
-// PUT update pengguna
+// ========== UPDATE pengguna (edit profil) ==========
 const updatePengguna = async (req, res) => {
   const { id } = req.params;
   const { nama, telepon, url_foto, aktif } = req.body;
@@ -153,17 +178,10 @@ const updatePengguna = async (req, res) => {
   }
 };
 
-// PUT update role pengguna (admin only)
+// ========== UPDATE ROLE (hanya admin) ==========
 const updateRolePengguna = async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
-  const { admin_role } = req.query;
-
-  if (admin_role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa mengubah role" });
-  }
 
   if (!role || !["pembeli", "penjual", "admin"].includes(role)) {
     return res.status(400).json({ message: "Role tidak valid" });
@@ -184,7 +202,7 @@ const updateRolePengguna = async (req, res) => {
   }
 };
 
-// DELETE pengguna (soft delete)
+// ========== DELETE (soft delete, nonaktifkan) ==========
 const deletePengguna = async (req, res) => {
   const { id } = req.params;
   try {
@@ -202,7 +220,7 @@ const deletePengguna = async (req, res) => {
   }
 };
 
-// GET pengguna by role (tanpa pagination)
+// ========== GET pengguna by role ==========
 const getPenggunaByRole = async (req, res) => {
   const { role } = req.params;
   try {
