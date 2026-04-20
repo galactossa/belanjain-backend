@@ -148,8 +148,3 @@ GET /api/transaksi/:id - Detail transaksi<br>
 - Admin: Semua endpoint (kategori, voucher, transaksi, laporan, broadcast)<br>
 - Penjual: Kelola produk, lihat pesanan masuk, update status<br>
 - Pembeli: Belanja, wishlist, keranjang, pesanan, review<br>
-
-<h2>Catatan</h2>
-- Semua endpoint yang membutuhkan autentikasi akan menggunakan JWT Token (coming soon)<br>
-- Saat ini autentikasi masih sederhana (belum pakai JWT)<br>
-- Password belum di-hash (akan diupdate dengan bcrypt)<br>
