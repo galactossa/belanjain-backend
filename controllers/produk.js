@@ -348,6 +348,30 @@ const filterProduk = async (req, res) => {
   }
 };
 
+// GET search suggestions (auto-suggest)
+const getSearchSuggestions = async (req, res) => {
+  const { q } = req.query;
+
+  if (!q || q.length < 2) {
+    return res.json([]);
+  }
+
+  try {
+    const result = await pool.query(
+      `SELECT id_produk, nama_produk, harga, url_gambar 
+             FROM produk 
+             WHERE nama_produk ILIKE $1 AND aktif = true 
+             ORDER BY total_terjual DESC 
+             LIMIT 5`,
+      [`%${q}%`],
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 module.exports = {
   getAllProduk,
   getProdukById,
@@ -358,4 +382,5 @@ module.exports = {
   deleteProduk,
   searchProduk,
   filterProduk,
+  getSearchSuggestions,
 };

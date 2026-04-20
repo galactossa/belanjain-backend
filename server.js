@@ -26,6 +26,11 @@ const laporanRoutes = require("./routes/laporan");
 const transaksiRoutes = require("./routes/transaksi");
 const statistikRoutes = require("./routes/statistik");
 const trustScoreRoutes = require("./routes/trustScore");
+const adminRoutes = require("./routes/admin");
+const settingsRoutes = require("./routes/settings");
+const blogRoutes = require("./routes/blog");
+const searchHistoryRoutes = require("./routes/searchHistory");
+const loyaltyRoutes = require("./routes/loyalty");
 
 // Gunakan routes
 app.use("/api/pengguna", penggunaRoutes);
@@ -43,6 +48,11 @@ app.use("/api/laporan", laporanRoutes);
 app.use("/api/transaksi", transaksiRoutes);
 app.use("/api/statistik", statistikRoutes);
 app.use("/api/trust-score", trustScoreRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/blogs", blogRoutes);
+app.use("/api/search-history", searchHistoryRoutes);
+app.use("/api/loyalty", loyaltyRoutes);
 
 // Test route
 app.get("/", (req, res) => {
@@ -64,6 +74,11 @@ app.get("/", (req, res) => {
       transaksi: "/api/transaksi",
       statistik: "/api/statistik",
       trustScore: "/api/trust-score",
+      admin: "/api/admin",
+      settings: "/api/settings",
+      blogs: "/api/blogs",
+      searchHistory: "/api/search-history",
+      loyalty: "/api/loyalty",
     },
   });
 });

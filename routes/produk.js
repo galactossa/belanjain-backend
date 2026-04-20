@@ -10,6 +10,7 @@ router.get("/filter", produkController.filterProduk);
 router.get("/:id", produkController.getProdukById);
 router.get("/toko/:id_toko", produkController.getProdukByToko);
 router.get("/kategori/:id_kategori", produkController.getProdukByKategori);
+router.get("/suggestions", produkController.getSearchSuggestions);
 
 // Hanya penjual atau admin yang bisa tambah/edit/hapus produk
 router.post(
