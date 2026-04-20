@@ -1,4 +1,12 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET semua pesanan by pengguna
 const getPesananByPengguna = async (req, res) => {
@@ -15,10 +23,10 @@ const getPesananByPengguna = async (req, res) => {
         `,
       [id_pengguna],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Orders retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -26,7 +34,6 @@ const getPesananByPengguna = async (req, res) => {
 const getPesananById = async (req, res) => {
   const { id } = req.params;
   try {
-    // Ambil data pesanan
     const pesananResult = await pool.query(
       `
             SELECT p.*, a.nama_penerima, a.telepon, a.alamat, a.kota, a.kode_pos, v.kode as kode_voucher
@@ -39,10 +46,9 @@ const getPesananById = async (req, res) => {
     );
 
     if (pesananResult.rows.length === 0) {
-      return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+      return notFound(res, "Pesanan tidak ditemukan");
     }
 
-    // Ambil item pesanan
     const itemsResult = await pool.query(
       `
             SELECT ip.*, pr.nama_produk, pr.url_gambar
@@ -53,13 +59,17 @@ const getPesananById = async (req, res) => {
       [id],
     );
 
-    res.json({
-      ...pesananResult.rows[0],
-      items: itemsResult.rows,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(
+      res,
+      {
+        ...pesananResult.rows[0],
+        items: itemsResult.rows,
+      },
+      "Order details retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -68,9 +78,7 @@ const createPesanan = async (req, res) => {
   const { id_pengguna, id_alamat, id_voucher, metode_pembayaran } = req.body;
 
   if (!id_pengguna || !id_alamat) {
-    return res
-      .status(400)
-      .json({ message: "id_pengguna dan id_alamat wajib diisi" });
+    return badRequest(res, "id_pengguna dan id_alamat wajib diisi");
   }
 
   const client = await pool.connect();
@@ -78,7 +86,6 @@ const createPesanan = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    // Ambil keranjang pengguna
     const keranjangResult = await client.query(
       `
             SELECT k.*, p.harga, p.stok, p.id_toko
@@ -91,16 +98,14 @@ const createPesanan = async (req, res) => {
 
     if (keranjangResult.rows.length === 0) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Keranjang kosong" });
+      return badRequest(res, "Keranjang kosong");
     }
 
-    // Hitung total harga
     let total_harga = 0;
     for (const item of keranjangResult.rows) {
       total_harga += item.jumlah * item.harga;
     }
 
-    // Hitung diskon jika ada voucher
     let potongan_diskon = 0;
     let voucherData = null;
 
@@ -137,7 +142,6 @@ const createPesanan = async (req, res) => {
 
     const harga_akhir = total_harga - potongan_diskon;
 
-    // Buat pesanan
     const pesananResult = await client.query(
       "INSERT INTO pesanan (id_pengguna, id_alamat, id_voucher, total_harga, potongan_diskon, harga_akhir, metode_pembayaran, status_pembayaran) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
       [
@@ -154,7 +158,6 @@ const createPesanan = async (req, res) => {
 
     const pesanan = pesananResult.rows[0];
 
-    // Buat item pesanan dan kurangi stok
     for (const item of keranjangResult.rows) {
       await client.query(
         "INSERT INTO item_pesanan (id_pesanan, id_produk, jumlah, harga, subtotal) VALUES ($1, $2, $3, $4, $5)",
@@ -167,19 +170,16 @@ const createPesanan = async (req, res) => {
         ],
       );
 
-      // Kurangi stok
       await client.query(
         "UPDATE produk SET stok = stok - $1, total_terjual = total_terjual + $1 WHERE id_produk = $2",
         [item.jumlah, item.id_produk],
       );
     }
 
-    // Kosongkan keranjang
     await client.query("DELETE FROM keranjang WHERE id_pengguna = $1", [
       id_pengguna,
     ]);
 
-    // Buat notifikasi
     await client.query(
       "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
       [
@@ -192,9 +192,9 @@ const createPesanan = async (req, res) => {
 
     await client.query("COMMIT");
 
-    res.status(201).json({
-      message: "Pesanan berhasil dibuat",
-      pesanan: {
+    return created(
+      res,
+      {
         id_pesanan: pesanan.id_pesanan,
         total_harga,
         potongan_diskon,
@@ -202,11 +202,12 @@ const createPesanan = async (req, res) => {
         status: pesanan.status,
         status_pembayaran: pesanan.status_pembayaran,
       },
-    });
-  } catch (error) {
+      "Pesanan berhasil dibuat",
+    );
+  } catch (err) {
     await client.query("ROLLBACK");
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error(err);
+    return error(res, "Server error", 500);
   } finally {
     client.release();
   }
@@ -224,10 +225,9 @@ const updateStatusPesanan = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+      return notFound(res, "Pesanan tidak ditemukan");
     }
 
-    // Buat notifikasi untuk pembeli
     await pool.query(
       "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
       [
@@ -238,10 +238,10 @@ const updateStatusPesanan = async (req, res) => {
       ],
     );
 
-    res.json({ message: "Status pesanan diupdate", pesanan: result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Status pesanan diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -257,10 +257,9 @@ const updatePembayaran = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Pesanan tidak ditemukan" });
+      return notFound(res, "Pesanan tidak ditemukan");
     }
 
-    // Buat transaksi jika pembayaran sukses
     if (status_pembayaran === "sukses") {
       await pool.query(
         "INSERT INTO transaksi (id_pesanan, metode_pembayaran, jumlah_dibayar, status_pembayaran, waktu_pembayaran) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)",
@@ -272,7 +271,6 @@ const updatePembayaran = async (req, res) => {
         ],
       );
 
-      // Notifikasi pembayaran sukses
       await pool.query(
         "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
         [
@@ -284,13 +282,10 @@ const updatePembayaran = async (req, res) => {
       );
     }
 
-    res.json({
-      message: "Status pembayaran diupdate",
-      pesanan: result.rows[0],
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Status pembayaran diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -310,10 +305,10 @@ const getPesananByToko = async (req, res) => {
         `,
       [id_toko],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Orders for store retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

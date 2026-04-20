@@ -1,5 +1,13 @@
 const pool = require("../db/db");
 const bcrypt = require("bcrypt");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET semua admin
 const getAllAdmin = async (req, res) => {
@@ -7,10 +15,10 @@ const getAllAdmin = async (req, res) => {
     const result = await pool.query(
       "SELECT id_pengguna, nama, email, role, telepon, created_at FROM pengguna WHERE role = 'admin'",
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Admins retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -19,9 +27,7 @@ const createAdmin = async (req, res) => {
   const { nama, email, password, telepon } = req.body;
 
   if (!nama || !email || !password) {
-    return res
-      .status(400)
-      .json({ message: "Nama, email, dan password wajib diisi" });
+    return badRequest(res, "Nama, email, dan password wajib diisi");
   }
 
   try {
@@ -30,7 +36,7 @@ const createAdmin = async (req, res) => {
       [email],
     );
     if (cekEmail.rows.length > 0) {
-      return res.status(400).json({ message: "Email sudah terdaftar" });
+      return badRequest(res, "Email sudah terdaftar");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -40,12 +46,10 @@ const createAdmin = async (req, res) => {
       [nama, email, hashedPassword, "admin", telepon],
     );
 
-    res
-      .status(201)
-      .json({ message: "Admin berhasil ditambahkan", admin: result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Admin berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -61,13 +65,13 @@ const updateAdmin = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Admin tidak ditemukan" });
+      return notFound(res, "Admin tidak ditemukan");
     }
 
-    res.json({ message: "Admin berhasil diupdate", admin: result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Admin berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -75,7 +79,6 @@ const updateAdmin = async (req, res) => {
 const deleteAdmin = async (req, res) => {
   const { id } = req.params;
 
-  // Cek jangan sampai menghapus admin terakhir
   try {
     const countResult = await pool.query(
       "SELECT COUNT(*) FROM pengguna WHERE role = 'admin'",
@@ -83,9 +86,7 @@ const deleteAdmin = async (req, res) => {
     const adminCount = parseInt(countResult.rows[0].count);
 
     if (adminCount <= 1) {
-      return res
-        .status(400)
-        .json({ message: "Tidak bisa menghapus admin terakhir" });
+      return badRequest(res, "Tidak bisa menghapus admin terakhir");
     }
 
     const result = await pool.query(
@@ -94,14 +95,19 @@ const deleteAdmin = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Admin tidak ditemukan" });
+      return notFound(res, "Admin tidak ditemukan");
     }
 
-    res.json({ message: "Admin berhasil dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Admin berhasil dihapus");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-module.exports = { getAllAdmin, createAdmin, updateAdmin, deleteAdmin };
+module.exports = {
+  getAllAdmin,
+  createAdmin,
+  updateAdmin,
+  deleteAdmin,
+};

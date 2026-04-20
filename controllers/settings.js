@@ -1,4 +1,11 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+} = require("../middleware/responseFormatter");
 
 // GET semua settings
 const getAllSettings = async (req, res) => {
@@ -6,10 +13,10 @@ const getAllSettings = async (req, res) => {
     const result = await pool.query(
       "SELECT * FROM settings ORDER BY id_setting",
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Settings retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -21,12 +28,12 @@ const getSettingByKey = async (req, res) => {
       key,
     ]);
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Setting tidak ditemukan" });
+      return notFound(res, "Setting tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Setting retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -35,7 +42,7 @@ const createSetting = async (req, res) => {
   const { key, value, type } = req.body;
 
   if (!key) {
-    return res.status(400).json({ message: "Key wajib diisi" });
+    return badRequest(res, "Key wajib diisi");
   }
 
   try {
@@ -43,7 +50,7 @@ const createSetting = async (req, res) => {
       key,
     ]);
     if (cek.rows.length > 0) {
-      return res.status(400).json({ message: "Key sudah ada" });
+      return badRequest(res, "Key sudah ada");
     }
 
     const result = await pool.query(
@@ -51,10 +58,10 @@ const createSetting = async (req, res) => {
       [key, value || "", type || "text"],
     );
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Setting berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -70,13 +77,13 @@ const updateSetting = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Setting tidak ditemukan" });
+      return notFound(res, "Setting tidak ditemukan");
     }
 
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Setting berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -90,12 +97,12 @@ const deleteSetting = async (req, res) => {
       [key],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Setting tidak ditemukan" });
+      return notFound(res, "Setting tidak ditemukan");
     }
-    res.json({ message: "Setting berhasil dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Setting berhasil dihapus");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

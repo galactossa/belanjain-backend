@@ -1,4 +1,12 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET semua voucher aktif
 const getAllVoucher = async (req, res) => {
@@ -10,10 +18,10 @@ const getAllVoucher = async (req, res) => {
             AND berlaku_sampai >= CURRENT_DATE
             ORDER BY created_at DESC
         `);
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Vouchers retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -21,19 +29,17 @@ const getAllVoucher = async (req, res) => {
 const getAllVoucherAdmin = async (req, res) => {
   const { role } = req.query;
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa melihat semua voucher" });
+    return forbidden(res, "Hanya admin yang bisa melihat semua voucher");
   }
 
   try {
     const result = await pool.query(
       "SELECT * FROM voucher ORDER BY created_at DESC",
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "All vouchers retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -46,12 +52,12 @@ const getVoucherById = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Voucher tidak ditemukan" });
+      return notFound(res, "Voucher tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Voucher retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -71,14 +77,12 @@ const getVoucherByKode = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res
-        .status(404)
-        .json({ message: "Voucher tidak valid atau sudah kadaluarsa" });
+      return notFound(res, "Voucher tidak valid atau sudah kadaluarsa");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Voucher retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -96,9 +100,7 @@ const createVoucher = async (req, res) => {
   const { role } = req.query;
 
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa menambah voucher" });
+    return forbidden(res, "Hanya admin yang bisa menambah voucher");
   }
 
   if (
@@ -108,16 +110,15 @@ const createVoucher = async (req, res) => {
     !berlaku_dari ||
     !berlaku_sampai
   ) {
-    return res.status(400).json({ message: "Field wajib diisi" });
+    return badRequest(res, "Field wajib diisi");
   }
 
   try {
-    // Cek kode sudah ada
     const cek = await pool.query("SELECT * FROM voucher WHERE kode = $1", [
       kode,
     ]);
     if (cek.rows.length > 0) {
-      return res.status(400).json({ message: "Kode voucher sudah digunakan" });
+      return badRequest(res, "Kode voucher sudah digunakan");
     }
 
     const result = await pool.query(
@@ -132,10 +133,10 @@ const createVoucher = async (req, res) => {
         berlaku_sampai,
       ],
     );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Voucher berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -155,9 +156,7 @@ const updateVoucher = async (req, res) => {
   const { role } = req.query;
 
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa mengupdate voucher" });
+    return forbidden(res, "Hanya admin yang bisa mengupdate voucher");
   }
 
   try {
@@ -176,12 +175,12 @@ const updateVoucher = async (req, res) => {
       ],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Voucher tidak ditemukan" });
+      return notFound(res, "Voucher tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Voucher berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -191,24 +190,19 @@ const deleteVoucher = async (req, res) => {
   const { role } = req.query;
 
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa menghapus voucher" });
+    return forbidden(res, "Hanya admin yang bisa menghapus voucher");
   }
 
   try {
-    // Cek apakah voucher pernah dipakai
     const cek = await pool.query(
       "SELECT * FROM pesanan WHERE id_voucher = $1",
       [id],
     );
     if (cek.rows.length > 0) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "Voucher sudah pernah dipakai, tidak bisa dihapus. Nonaktifkan saja.",
-        });
+      return badRequest(
+        res,
+        "Voucher sudah pernah dipakai, tidak bisa dihapus. Nonaktifkan saja.",
+      );
     }
 
     const result = await pool.query(
@@ -216,12 +210,12 @@ const deleteVoucher = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Voucher tidak ditemukan" });
+      return notFound(res, "Voucher tidak ditemukan");
     }
-    res.json({ message: "Voucher berhasil dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Voucher berhasil dihapus");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

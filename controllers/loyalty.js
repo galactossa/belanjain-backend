@@ -1,4 +1,11 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+} = require("../middleware/responseFormatter");
 
 // GET total poin pengguna
 const getTotalPoints = async (req, res) => {
@@ -8,13 +15,17 @@ const getTotalPoints = async (req, res) => {
       "SELECT COALESCE(SUM(poin), 0) as total_points FROM loyalty_points WHERE id_pengguna = $1",
       [id_pengguna],
     );
-    res.json({
-      id_pengguna: parseInt(id_pengguna),
-      total_points: parseInt(result.rows[0].total_points),
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(
+      res,
+      {
+        id_pengguna: parseInt(id_pengguna),
+        total_points: parseInt(result.rows[0].total_points),
+      },
+      "Total points retrieved",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -26,21 +37,19 @@ const getPointHistory = async (req, res) => {
       "SELECT * FROM loyalty_points WHERE id_pengguna = $1 ORDER BY created_at DESC",
       [id_pengguna],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Point history retrieved");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// POST tambah poin (dipanggil saat checkout selesai)
+// POST tambah poin
 const addPoints = async (req, res) => {
   const { id_pengguna, poin, sumber, id_referensi, expired_at } = req.body;
 
   if (!id_pengguna || !poin) {
-    return res
-      .status(400)
-      .json({ message: "id_pengguna dan poin wajib diisi" });
+    return badRequest(res, "id_pengguna dan poin wajib diisi");
   }
 
   try {
@@ -54,21 +63,19 @@ const addPoints = async (req, res) => {
         expired_at || null,
       ],
     );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Points added successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// PUT redeem poin (tukar poin dengan voucher)
+// PUT redeem poin
 const redeemPoints = async (req, res) => {
   const { id_pengguna, poin_dipakai } = req.body;
 
   if (!id_pengguna || !poin_dipakai) {
-    return res
-      .status(400)
-      .json({ message: "id_pengguna dan poin_dipakai wajib diisi" });
+    return badRequest(res, "id_pengguna dan poin_dipakai wajib diisi");
   }
 
   const client = await pool.connect();
@@ -84,7 +91,7 @@ const redeemPoints = async (req, res) => {
 
     if (totalPoin < poin_dipakai) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ message: "Poin tidak mencukupi" });
+      return badRequest(res, "Poin tidak mencukupi");
     }
 
     await client.query(
@@ -93,14 +100,15 @@ const redeemPoints = async (req, res) => {
     );
 
     await client.query("COMMIT");
-    res.json({
-      message: "Poin berhasil ditukar",
-      poin_digunakan: poin_dipakai,
-    });
-  } catch (error) {
+    return success(
+      res,
+      { poin_digunakan: poin_dipakai },
+      "Points redeemed successfully",
+    );
+  } catch (err) {
     await client.query("ROLLBACK");
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error(err);
+    return error(res, "Server error", 500);
   } finally {
     client.release();
   }
@@ -136,20 +144,24 @@ const getMembershipLevel = async (req, res) => {
       nextLevelName = "Platinum";
     }
 
-    res.json({
-      id_pengguna: parseInt(id_pengguna),
-      total_points: totalPoin,
-      membership_level: level,
-      badge: badge,
-      min_points_for_current_level: minPoints,
-      points_to_next_level: nextLevelPoints
-        ? nextLevelPoints - totalPoin
-        : null,
-      next_level_name: nextLevelName,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(
+      res,
+      {
+        id_pengguna: parseInt(id_pengguna),
+        total_points: totalPoin,
+        membership_level: level,
+        badge: badge,
+        min_points_for_current_level: minPoints,
+        points_to_next_level: nextLevelPoints
+          ? nextLevelPoints - totalPoin
+          : null,
+        next_level_name: nextLevelName,
+      },
+      "Membership level retrieved",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

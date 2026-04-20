@@ -1,4 +1,11 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+} = require("../middleware/responseFormatter");
 
 // GET riwayat pencarian by pengguna
 const getSearchHistory = async (req, res) => {
@@ -10,10 +17,10 @@ const getSearchHistory = async (req, res) => {
       "SELECT * FROM search_history WHERE id_pengguna = $1 ORDER BY created_at DESC LIMIT $2",
       [id_pengguna, parseInt(limit)],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Search history retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -22,9 +29,7 @@ const saveSearchHistory = async (req, res) => {
   const { id_pengguna, keyword } = req.body;
 
   if (!id_pengguna || !keyword) {
-    return res
-      .status(400)
-      .json({ message: "id_pengguna dan keyword wajib diisi" });
+    return badRequest(res, "id_pengguna dan keyword wajib diisi");
   }
 
   try {
@@ -32,10 +37,10 @@ const saveSearchHistory = async (req, res) => {
       "INSERT INTO search_history (id_pengguna, keyword) VALUES ($1, $2) RETURNING *",
       [id_pengguna, keyword],
     );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Search keyword saved");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -48,12 +53,12 @@ const deleteSearchHistory = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Riwayat tidak ditemukan" });
+      return notFound(res, "Riwayat tidak ditemukan");
     }
-    res.json({ message: "Riwayat dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Search history deleted");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -64,10 +69,10 @@ const clearSearchHistory = async (req, res) => {
     await pool.query("DELETE FROM search_history WHERE id_pengguna = $1", [
       id_pengguna,
     ]);
-    res.json({ message: "Semua riwayat pencarian dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "All search history cleared");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

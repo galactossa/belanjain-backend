@@ -1,24 +1,23 @@
 const pool = require("../db/db");
+const { success, error, notFound } = require("../middleware/responseFormatter");
 
 // GET trust score untuk satu produk
 const getTrustScoreProduk = async (req, res) => {
   const { id_produk } = req.params;
 
   try {
-    // 1. Ambil rating rata-rata (sudah ada di tabel produk)
     const produkResult = await pool.query(
       "SELECT rata_rating, total_terjual FROM produk WHERE id_produk = $1",
       [id_produk],
     );
 
     if (produkResult.rows.length === 0) {
-      return res.status(404).json({ message: "Produk tidak ditemukan" });
+      return notFound(res, "Produk tidak ditemukan");
     }
 
     const rating = parseFloat(produkResult.rows[0].rata_rating) || 0;
     const totalTerjual = parseInt(produkResult.rows[0].total_terjual) || 0;
 
-    // 2. Hitung konsistensi review (persentase rating >= 4)
     const konsistensiResult = await pool.query(
       `
             SELECT 
@@ -35,7 +34,6 @@ const getTrustScoreProduk = async (req, res) => {
     const konsistensiReview =
       totalReview > 0 ? (reviewBaik / totalReview) * 100 : 0;
 
-    // 3. Hitung kecepatan kirim (rata-rata hari pengiriman)
     const kecepatanResult = await pool.query(
       `
             SELECT AVG(EXTRACT(DAY FROM (p.updated_at - p.created_at))) as rata_hari
@@ -46,16 +44,13 @@ const getTrustScoreProduk = async (req, res) => {
       [id_produk],
     );
 
-    let kecepatanKirim = 100; // default 100
+    let kecepatanKirim = 100;
     const rataHari = parseFloat(kecepatanResult.rows[0].rata_hari);
     if (rataHari && rataHari > 0) {
-      // Konversi: semakin cepat kirim, semakin tinggi skor
       kecepatanKirim = Math.max(0, 100 - rataHari * 10);
       kecepatanKirim = Math.min(100, kecepatanKirim);
     }
 
-    // 4. Hitung Trust Score (0-100)
-    // Normalisasi setiap komponen ke skala 0-100
     const ratingScore = (rating / 5) * 100;
     const terjualScore = Math.min(100, (totalTerjual / 100) * 100);
 
@@ -65,7 +60,6 @@ const getTrustScoreProduk = async (req, res) => {
       konsistensiReview * 0.2 +
       kecepatanKirim * 0.1;
 
-    // 5. Tentukan level kepercayaan
     let level = "Perlu Dipertimbangkan";
     let badge = "⚠️";
     if (trustScore >= 80) {
@@ -79,27 +73,31 @@ const getTrustScoreProduk = async (req, res) => {
       badge = "👍";
     }
 
-    res.json({
-      id_produk: parseInt(id_produk),
-      trust_score: Math.round(trustScore),
-      level: level,
-      badge: badge,
-      detail: {
-        rating: rating,
-        rating_score: Math.round(ratingScore),
-        total_terjual: totalTerjual,
-        terjual_score: Math.round(terjualScore),
-        konsistensi_review: Math.round(konsistensiReview),
-        kecepatan_kirim: Math.round(kecepatanKirim),
+    return success(
+      res,
+      {
+        id_produk: parseInt(id_produk),
+        trust_score: Math.round(trustScore),
+        level: level,
+        badge: badge,
+        detail: {
+          rating: rating,
+          rating_score: Math.round(ratingScore),
+          total_terjual: totalTerjual,
+          terjual_score: Math.round(terjualScore),
+          konsistensi_review: Math.round(konsistensiReview),
+          kecepatan_kirim: Math.round(kecepatanKirim),
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Trust score retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET trust score untuk semua produk (opsional)
+// GET trust score untuk semua produk
 const getAllTrustScore = async (req, res) => {
   try {
     const produkResult = await pool.query(
@@ -108,7 +106,6 @@ const getAllTrustScore = async (req, res) => {
 
     const results = [];
     for (const produk of produkResult.rows) {
-      // Hitung konsistensi review
       const konsistensiResult = await pool.query(
         `
                 SELECT 
@@ -124,7 +121,6 @@ const getAllTrustScore = async (req, res) => {
       const konsistensiReview =
         totalReview > 0 ? (reviewBaik / totalReview) * 100 : 0;
 
-      // Hitung skor
       const ratingScore = (produk.rata_rating / 5) * 100;
       const terjualScore = Math.min(100, (produk.total_terjual / 100) * 100);
       const trustScore =
@@ -137,10 +133,10 @@ const getAllTrustScore = async (req, res) => {
       });
     }
 
-    res.json(results);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, results, "All trust scores retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

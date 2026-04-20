@@ -1,4 +1,13 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  unauthorized,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET semua produk dengan PAGINATION
 const getAllProduk = async (req, res) => {
@@ -6,7 +15,6 @@ const getAllProduk = async (req, res) => {
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
-    // Hitung total data
     const totalResult = await pool.query(
       "SELECT COUNT(*) FROM produk WHERE aktif = true",
     );
@@ -26,24 +34,28 @@ const getAllProduk = async (req, res) => {
       [parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
-        has_next: parseInt(page) < totalPage,
-        has_prev: parseInt(page) > 1,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+          has_next: parseInt(page) < totalPage,
+          has_prev: parseInt(page) > 1,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Products retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET produk by ID (tanpa pagination)
+// GET produk by ID
 const getProdukById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -58,16 +70,16 @@ const getProdukById = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Produk tidak ditemukan" });
+      return notFound(res, "Produk tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Product retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET produk by toko dengan PAGINATION
+// GET produk by toko
 const getProdukByToko = async (req, res) => {
   const { id_toko } = req.params;
   const { page = 1, limit = 12 } = req.query;
@@ -89,22 +101,26 @@ const getProdukByToko = async (req, res) => {
       [id_toko, parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Products retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET produk by kategori dengan PAGINATION
+// GET produk by kategori
 const getProdukByKategori = async (req, res) => {
   const { id_kategori } = req.params;
   const { page = 1, limit = 12 } = req.query;
@@ -129,18 +145,22 @@ const getProdukByKategori = async (req, res) => {
       [id_kategori, parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Products retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -157,9 +177,7 @@ const createProduk = async (req, res) => {
   } = req.body;
 
   if (!id_toko || !nama_produk || !harga) {
-    return res
-      .status(400)
-      .json({ message: "id_toko, nama_produk, dan harga wajib diisi" });
+    return badRequest(res, "id_toko, nama_produk, dan harga wajib diisi");
   }
 
   try {
@@ -175,10 +193,10 @@ const createProduk = async (req, res) => {
         url_gambar,
       ],
     );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Produk berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -200,12 +218,12 @@ const updateProduk = async (req, res) => {
       [nama_produk, deskripsi, harga, stok, url_gambar, id_kategori, aktif, id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Produk tidak ditemukan" });
+      return notFound(res, "Produk tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Produk berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -218,20 +236,20 @@ const deleteProduk = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Produk tidak ditemukan" });
+      return notFound(res, "Produk tidak ditemukan");
     }
-    res.json({ message: "Produk berhasil dinonaktifkan" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Produk berhasil dinonaktifkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET search produk dengan PAGINATION
+// GET search produk
 const searchProduk = async (req, res) => {
   const { q, page = 1, limit = 12 } = req.query;
   if (!q) {
-    return res.status(400).json({ message: "Parameter q wajib diisi" });
+    return badRequest(res, "Parameter q wajib diisi");
   }
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -259,23 +277,27 @@ const searchProduk = async (req, res) => {
       [`%${q}%`, parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
-        search_keyword: q,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+          search_keyword: q,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Search results retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET filter produk dengan PAGINATION
+// GET filter produk
 const filterProduk = async (req, res) => {
   const {
     min_harga,
@@ -319,41 +341,43 @@ const filterProduk = async (req, res) => {
     query += " ORDER BY p.id_produk DESC";
   }
 
-  // Hitung total dulu tanpa limit
   const countQuery = query.replace(/SELECT p\..* FROM/, "SELECT COUNT(*) FROM");
   const totalResult = await pool.query(countQuery, params);
   const totalData = parseInt(totalResult.rows[0].count);
   const totalPage = Math.ceil(totalData / parseInt(limit));
 
-  // Tambah limit offset
   const offset = (parseInt(page) - 1) * parseInt(limit);
   query += ` LIMIT $${paramIndex++} OFFSET $${paramIndex++}`;
   params.push(parseInt(limit), offset);
 
   try {
     const result = await pool.query(query, params);
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
-        filters: { min_harga, max_harga, id_kategori, sort },
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+          filters: { min_harga, max_harga, id_kategori, sort },
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Filtered products retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET search suggestions (auto-suggest)
+// GET search suggestions
 const getSearchSuggestions = async (req, res) => {
   const { q } = req.query;
 
   if (!q || q.length < 2) {
-    return res.json([]);
+    return success(res, [], "No suggestions (keyword too short)");
   }
 
   try {
@@ -365,10 +389,10 @@ const getSearchSuggestions = async (req, res) => {
              LIMIT 5`,
       [`%${q}%`],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Suggestions retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

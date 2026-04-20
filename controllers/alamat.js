@@ -1,4 +1,11 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+} = require("../middleware/responseFormatter");
 
 // GET semua alamat by pengguna
 const getAlamatByPengguna = async (req, res) => {
@@ -8,10 +15,10 @@ const getAlamatByPengguna = async (req, res) => {
       "SELECT * FROM alamat WHERE id_pengguna = $1 ORDER BY utama DESC, created_at DESC",
       [id_pengguna],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Addresses retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -24,12 +31,12 @@ const getAlamatById = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Alamat tidak ditemukan" });
+      return notFound(res, "Alamat tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Address retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -39,11 +46,10 @@ const createAlamat = async (req, res) => {
     req.body;
 
   if (!id_pengguna || !nama_penerima || !telepon || !alamat || !kota) {
-    return res.status(400).json({ message: "Semua field wajib diisi" });
+    return badRequest(res, "Semua field wajib diisi");
   }
 
   try {
-    // Jika utama = true, update alamat lain jadi false dulu
     if (utama) {
       await pool.query(
         "UPDATE alamat SET utama = false WHERE id_pengguna = $1",
@@ -63,10 +69,10 @@ const createAlamat = async (req, res) => {
         utama || false,
       ],
     );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Alamat berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -76,7 +82,6 @@ const updateAlamat = async (req, res) => {
   const { nama_penerima, telepon, alamat, kota, kode_pos, utama } = req.body;
 
   try {
-    // Jika utama = true, update alamat lain jadi false dulu
     if (utama) {
       const alamatLama = await pool.query(
         "SELECT id_pengguna FROM alamat WHERE id_alamat = $1",
@@ -95,12 +100,12 @@ const updateAlamat = async (req, res) => {
       [nama_penerima, telepon, alamat, kota, kode_pos, utama, id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Alamat tidak ditemukan" });
+      return notFound(res, "Alamat tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Alamat berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -108,16 +113,14 @@ const updateAlamat = async (req, res) => {
 const deleteAlamat = async (req, res) => {
   const { id } = req.params;
   try {
-    // Cek apakah alamat ini sedang dipakai di pesanan
     const cek = await pool.query("SELECT * FROM pesanan WHERE id_alamat = $1", [
       id,
     ]);
     if (cek.rows.length > 0) {
-      return res
-        .status(400)
-        .json({
-          message: "Alamat sedang dipakai di pesanan, tidak bisa dihapus",
-        });
+      return badRequest(
+        res,
+        "Alamat sedang dipakai di pesanan, tidak bisa dihapus",
+      );
     }
 
     const result = await pool.query(
@@ -125,12 +128,12 @@ const deleteAlamat = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Alamat tidak ditemukan" });
+      return notFound(res, "Alamat tidak ditemukan");
     }
-    res.json({ message: "Alamat berhasil dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Alamat berhasil dihapus");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

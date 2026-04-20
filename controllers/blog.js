@@ -1,4 +1,11 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+} = require("../middleware/responseFormatter");
 
 // GET semua artikel (dengan pagination)
 const getAllBlogs = async (req, res) => {
@@ -15,18 +22,22 @@ const getAllBlogs = async (req, res) => {
       [parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Blogs retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -38,12 +49,12 @@ const getBlogById = async (req, res) => {
       id,
     ]);
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Artikel tidak ditemukan" });
+      return notFound(res, "Artikel tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Blog retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -52,7 +63,7 @@ const createBlog = async (req, res) => {
   const { judul, konten, foto_url, penulis } = req.body;
 
   if (!judul || !konten) {
-    return res.status(400).json({ message: "Judul dan konten wajib diisi" });
+    return badRequest(res, "Judul dan konten wajib diisi");
   }
 
   try {
@@ -61,10 +72,10 @@ const createBlog = async (req, res) => {
       [judul, konten, foto_url || null, penulis || "Admin"],
     );
 
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Artikel berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -80,13 +91,13 @@ const updateBlog = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Artikel tidak ditemukan" });
+      return notFound(res, "Artikel tidak ditemukan");
     }
 
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Artikel berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -99,12 +110,12 @@ const deleteBlog = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Artikel tidak ditemukan" });
+      return notFound(res, "Artikel tidak ditemukan");
     }
-    res.json({ message: "Artikel berhasil dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Artikel berhasil dihapus");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

@@ -1,4 +1,12 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET semua kategori
 const getAllKategori = async (req, res) => {
@@ -6,10 +14,10 @@ const getAllKategori = async (req, res) => {
     const result = await pool.query(
       "SELECT * FROM kategori ORDER BY id_kategori",
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Categories retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -22,12 +30,12 @@ const getKategoriById = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Kategori tidak ditemukan" });
+      return notFound(res, "Kategori tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Category retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -37,13 +45,11 @@ const createKategori = async (req, res) => {
   const { role } = req.query;
 
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa menambah kategori" });
+    return forbidden(res, "Hanya admin yang bisa menambah kategori");
   }
 
   if (!nama_kategori) {
-    return res.status(400).json({ message: "Nama kategori wajib diisi" });
+    return badRequest(res, "Nama kategori wajib diisi");
   }
 
   try {
@@ -51,10 +57,10 @@ const createKategori = async (req, res) => {
       "INSERT INTO kategori (nama_kategori) VALUES ($1) RETURNING *",
       [nama_kategori],
     );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Kategori berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -65,13 +71,11 @@ const updateKategori = async (req, res) => {
   const { role } = req.query;
 
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa mengupdate kategori" });
+    return forbidden(res, "Hanya admin yang bisa mengupdate kategori");
   }
 
   if (!nama_kategori) {
-    return res.status(400).json({ message: "Nama kategori wajib diisi" });
+    return badRequest(res, "Nama kategori wajib diisi");
   }
 
   try {
@@ -80,12 +84,12 @@ const updateKategori = async (req, res) => {
       [nama_kategori, id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Kategori tidak ditemukan" });
+      return notFound(res, "Kategori tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Kategori berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -95,23 +99,19 @@ const deleteKategori = async (req, res) => {
   const { role } = req.query;
 
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa menghapus kategori" });
+    return forbidden(res, "Hanya admin yang bisa menghapus kategori");
   }
 
   try {
-    // Cek apakah kategori masih dipakai produk
     const cek = await pool.query(
       "SELECT * FROM produk WHERE id_kategori = $1",
       [id],
     );
     if (cek.rows.length > 0) {
-      return res
-        .status(400)
-        .json({
-          message: "Kategori masih memiliki produk, tidak bisa dihapus",
-        });
+      return badRequest(
+        res,
+        "Kategori masih memiliki produk, tidak bisa dihapus",
+      );
     }
 
     const result = await pool.query(
@@ -119,12 +119,12 @@ const deleteKategori = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Kategori tidak ditemukan" });
+      return notFound(res, "Kategori tidak ditemukan");
     }
-    res.json({ message: "Kategori berhasil dihapus" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Kategori berhasil dihapus");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

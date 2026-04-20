@@ -1,12 +1,22 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  notFound,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET semua transaksi (admin only) dengan PAGINATION
 const getAllTransaksi = async (req, res) => {
-  const { page = 1, limit = 10 } = req.query;
+  const { role, page = 1, limit = 10 } = req.query;
+
+  if (role !== "admin") {
+    return forbidden(res, "Hanya admin yang bisa melihat semua transaksi");
+  }
+
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
-    // Hitung total data
     const totalResult = await pool.query("SELECT COUNT(*) FROM transaksi");
     const totalData = parseInt(totalResult.rows[0].count);
     const totalPage = Math.ceil(totalData / parseInt(limit));
@@ -22,18 +32,22 @@ const getAllTransaksi = async (req, res) => {
       [parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Transactions retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -62,10 +76,9 @@ const getTransaksiById = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Transaksi tidak ditemukan" });
+      return notFound(res, "Transaksi tidak ditemukan");
     }
 
-    // Ambil item pesanan
     const items = await pool.query(
       `
             SELECT ip.*, pr.nama_produk
@@ -76,13 +89,17 @@ const getTransaksiById = async (req, res) => {
       [result.rows[0].id_pesanan],
     );
 
-    res.json({
-      transaksi: result.rows[0],
-      items: items.rows,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(
+      res,
+      {
+        transaksi: result.rows[0],
+        items: items.rows,
+      },
+      "Transaction details retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -116,18 +133,22 @@ const getTransaksiByPengguna = async (req, res) => {
       [id_pengguna, parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "User transactions retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

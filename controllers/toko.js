@@ -1,4 +1,11 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+} = require("../middleware/responseFormatter");
 
 // GET semua toko
 const getAllToko = async (req, res) => {
@@ -9,10 +16,10 @@ const getAllToko = async (req, res) => {
             JOIN pengguna p ON t.id_pengguna = p.id_pengguna 
             WHERE t.aktif = true
         `);
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Stores retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -30,12 +37,12 @@ const getTokoById = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Toko tidak ditemukan" });
+      return notFound(res, "Toko tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Store retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -44,22 +51,18 @@ const createToko = async (req, res) => {
   const { id_pengguna, nama_toko, deskripsi } = req.body;
 
   if (!id_pengguna || !nama_toko) {
-    return res
-      .status(400)
-      .json({ message: "id_pengguna dan nama_toko wajib diisi" });
+    return badRequest(res, "id_pengguna dan nama_toko wajib diisi");
   }
 
   try {
-    // Cek pengguna sudah punya toko atau belum
     const cekToko = await pool.query(
       "SELECT * FROM toko WHERE id_pengguna = $1",
       [id_pengguna],
     );
     if (cekToko.rows.length > 0) {
-      return res.status(400).json({ message: "Pengguna sudah memiliki toko" });
+      return badRequest(res, "Pengguna sudah memiliki toko");
     }
 
-    // Update role pengguna menjadi penjual
     await pool.query("UPDATE pengguna SET role = $1 WHERE id_pengguna = $2", [
       "penjual",
       id_pengguna,
@@ -69,12 +72,10 @@ const createToko = async (req, res) => {
       "INSERT INTO toko (id_pengguna, nama_toko, deskripsi) VALUES ($1, $2, $3) RETURNING *",
       [id_pengguna, nama_toko, deskripsi],
     );
-    res
-      .status(201)
-      .json({ message: "Toko berhasil dibuat", toko: result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Toko berhasil dibuat");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -84,16 +85,16 @@ const updateToko = async (req, res) => {
   const { nama_toko, logo_toko, deskripsi } = req.body;
   try {
     const result = await pool.query(
-      "UPDATE toko SET nama_toko = $1, logo_toko = $2, deskripsi = $3, updated_at = CURRENT_TIMESTAMP WHERE id_toko = $4 RETURNING *",
+      "UPDATE toko SET nama_toko = COALESCE($1, nama_toko), logo_toko = COALESCE($2, logo_toko), deskripsi = COALESCE($3, deskripsi), updated_at = CURRENT_TIMESTAMP WHERE id_toko = $4 RETURNING *",
       [nama_toko, logo_toko, deskripsi, id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Toko tidak ditemukan" });
+      return notFound(res, "Toko tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Toko berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -105,10 +106,10 @@ const getProdukByToko = async (req, res) => {
       "SELECT * FROM produk WHERE id_toko = $1 AND aktif = true",
       [id_toko],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Products retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

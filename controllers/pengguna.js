@@ -1,10 +1,19 @@
 const pool = require("../db/db");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  unauthorized,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 const JWT_SECRET = process.env.JWT_SECRET || "rahasia_default_ganti_nanti";
 
-// ========== GET semua pengguna (dengan pagination) ==========
+// GET semua pengguna dengan PAGINATION
 const getAllPengguna = async (req, res) => {
   const { page = 1, limit = 10, role } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -32,22 +41,26 @@ const getAllPengguna = async (req, res) => {
 
     const result = await pool.query(query, params);
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Users retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// ========== GET pengguna by ID ==========
+// GET pengguna by ID
 const getPenggunaById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -56,110 +69,100 @@ const getPenggunaById = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Pengguna tidak ditemukan" });
+      return notFound(res, "Pengguna tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "User retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// ========== REGISTRASI (dengan hash password) ==========
+// POST registrasi pengguna
 const register = async (req, res) => {
   const { nama, email, password, telepon } = req.body;
 
   if (!nama || !email || !password) {
-    return res
-      .status(400)
-      .json({ message: "Nama, email, dan password wajib diisi" });
+    return badRequest(res, "Nama, email, dan password wajib diisi");
   }
 
   try {
-    // Cek apakah email sudah terdaftar
     const cekEmail = await pool.query(
       "SELECT * FROM pengguna WHERE email = $1",
       [email],
     );
     if (cekEmail.rows.length > 0) {
-      return res.status(400).json({ message: "Email sudah terdaftar" });
+      return badRequest(res, "Email sudah terdaftar");
     }
 
-    // Hash password (acak) sebelum disimpan
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await pool.query(
       "INSERT INTO pengguna (nama, email, password, telepon) VALUES ($1, $2, $3, $4) RETURNING id_pengguna, nama, email, role",
       [nama, email, hashedPassword, telepon],
     );
-    res
-      .status(201)
-      .json({ message: "Registrasi berhasil", pengguna: result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+
+    return created(res, result.rows[0], "Registrasi berhasil");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// ========== LOGIN (verifikasi password + buat token) ==========
+// POST login
 const login = async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ message: "Email dan password wajib diisi" });
+    return badRequest(res, "Email dan password wajib diisi");
   }
 
   try {
-    // Cari user berdasarkan email
     const result = await pool.query("SELECT * FROM pengguna WHERE email = $1", [
       email,
     ]);
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: "Email atau password salah" });
+      return unauthorized(res, "Email atau password salah");
     }
 
     const pengguna = result.rows[0];
 
-    // Bandingkan password yang dikirim dengan yang sudah di-hash di database
     const validPassword = await bcrypt.compare(password, pengguna.password);
     if (!validPassword) {
-      return res.status(401).json({ message: "Email atau password salah" });
+      return unauthorized(res, "Email atau password salah");
     }
 
-    // Cek apakah akun masih aktif
     if (!pengguna.aktif) {
-      return res.status(403).json({ message: "Akun anda telah dinonaktifkan" });
+      return forbidden(res, "Akun anda telah dinonaktifkan");
     }
 
-    // Buat JWT Token
     const token = jwt.sign(
-      {
-        id: pengguna.id_pengguna,
-        email: pengguna.email,
-        role: pengguna.role,
-      },
+      { id: pengguna.id_pengguna, email: pengguna.email, role: pengguna.role },
       JWT_SECRET,
-      { expiresIn: "7d" }, // Token berlaku 7 hari
+      { expiresIn: "7d" },
     );
 
-    res.json({
-      message: "Login berhasil",
-      token: token,
-      pengguna: {
-        id_pengguna: pengguna.id_pengguna,
-        nama: pengguna.nama,
-        email: pengguna.email,
-        role: pengguna.role,
-        telepon: pengguna.telepon,
+    return success(
+      res,
+      {
+        token: token,
+        pengguna: {
+          id_pengguna: pengguna.id_pengguna,
+          nama: pengguna.nama,
+          email: pengguna.email,
+          role: pengguna.role,
+          telepon: pengguna.telepon,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Login berhasil",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// ========== UPDATE pengguna (edit profil) ==========
+// PUT update pengguna
 const updatePengguna = async (req, res) => {
   const { id } = req.params;
   const { nama, telepon, url_foto, aktif } = req.body;
@@ -169,22 +172,22 @@ const updatePengguna = async (req, res) => {
       [nama, telepon, url_foto, aktif, id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Pengguna tidak ditemukan" });
+      return notFound(res, "Pengguna tidak ditemukan");
     }
-    res.json({ message: "Data berhasil diupdate", pengguna: result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Data berhasil diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// ========== UPDATE ROLE (hanya admin) ==========
+// PUT update role pengguna (admin only)
 const updateRolePengguna = async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
 
   if (!role || !["pembeli", "penjual", "admin"].includes(role)) {
-    return res.status(400).json({ message: "Role tidak valid" });
+    return badRequest(res, "Role tidak valid");
   }
 
   try {
@@ -193,16 +196,16 @@ const updateRolePengguna = async (req, res) => {
       [role, id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Pengguna tidak ditemukan" });
+      return notFound(res, "Pengguna tidak ditemukan");
     }
-    res.json({ message: "Role berhasil diubah", pengguna: result.rows[0] });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Role berhasil diubah");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// ========== DELETE (soft delete, nonaktifkan) ==========
+// DELETE pengguna (soft delete)
 const deletePengguna = async (req, res) => {
   const { id } = req.params;
   try {
@@ -211,16 +214,16 @@ const deletePengguna = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Pengguna tidak ditemukan" });
+      return notFound(res, "Pengguna tidak ditemukan");
     }
-    res.json({ message: "Pengguna berhasil dinonaktifkan" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "Pengguna berhasil dinonaktifkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// ========== GET pengguna by role ==========
+// GET pengguna by role
 const getPenggunaByRole = async (req, res) => {
   const { role } = req.params;
   try {
@@ -228,10 +231,10 @@ const getPenggunaByRole = async (req, res) => {
       "SELECT id_pengguna, nama, email, role, telepon, aktif FROM pengguna WHERE role = $1",
       [role],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Users retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

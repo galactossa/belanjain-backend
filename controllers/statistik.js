@@ -1,11 +1,15 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET statistik penjual
 const getStatistikPenjual = async (req, res) => {
   const { id_toko } = req.params;
 
   try {
-    // Total penjualan (dari pesanan yang sudah selesai)
     const totalPenjualanResult = await pool.query(
       `
             SELECT COALESCE(SUM(ip.jumlah * ip.harga), 0) as total_penjualan
@@ -17,7 +21,6 @@ const getStatistikPenjual = async (req, res) => {
       [id_toko],
     );
 
-    // Total produk terjual
     const produkTerjualResult = await pool.query(
       `
             SELECT COALESCE(SUM(ip.jumlah), 0) as total_terjual
@@ -29,7 +32,6 @@ const getStatistikPenjual = async (req, res) => {
       [id_toko],
     );
 
-    // Jumlah pesanan
     const jumlahPesananResult = await pool.query(
       `
             SELECT COUNT(DISTINCT p.id_pesanan) as jumlah_pesanan
@@ -41,7 +43,6 @@ const getStatistikPenjual = async (req, res) => {
       [id_toko],
     );
 
-    // Top 5 produk terlaris
     const topProdukResult = await pool.query(
       `
             SELECT pr.nama_produk, COALESCE(SUM(ip.jumlah), 0) as total_terjual
@@ -56,7 +57,6 @@ const getStatistikPenjual = async (req, res) => {
       [id_toko],
     );
 
-    // Penjualan per bulan (6 bulan terakhir)
     const penjualanPerBulanResult = await pool.query(
       `
             SELECT 
@@ -73,16 +73,24 @@ const getStatistikPenjual = async (req, res) => {
       [id_toko],
     );
 
-    res.json({
-      total_penjualan: parseFloat(totalPenjualanResult.rows[0].total_penjualan),
-      total_produk_terjual: parseInt(produkTerjualResult.rows[0].total_terjual),
-      jumlah_pesanan: parseInt(jumlahPesananResult.rows[0].jumlah_pesanan),
-      top_5_produk: topProdukResult.rows,
-      penjualan_per_bulan: penjualanPerBulanResult.rows,
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(
+      res,
+      {
+        total_penjualan: parseFloat(
+          totalPenjualanResult.rows[0].total_penjualan,
+        ),
+        total_produk_terjual: parseInt(
+          produkTerjualResult.rows[0].total_terjual,
+        ),
+        jumlah_pesanan: parseInt(jumlahPesananResult.rows[0].jumlah_pesanan),
+        top_5_produk: topProdukResult.rows,
+        penjualan_per_bulan: penjualanPerBulanResult.rows,
+      },
+      "Seller statistics retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -90,46 +98,38 @@ const getStatistikPenjual = async (req, res) => {
 const getStatistikAdmin = async (req, res) => {
   const { role } = req.query;
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa melihat statistik" });
+    return forbidden(res, "Hanya admin yang bisa melihat statistik");
   }
 
   try {
-    // Jumlah user
     const jumlahUser = await pool.query("SELECT COUNT(*) FROM pengguna");
-
-    // Jumlah penjual
     const jumlahPenjual = await pool.query(
-      "SELECT COUNT(*) FROM pengguna WHERE role = $1",
-      ["penjual"],
+      "SELECT COUNT(*) FROM pengguna WHERE role = 'penjual'",
     );
-
-    // Jumlah produk
     const jumlahProduk = await pool.query(
       "SELECT COUNT(*) FROM produk WHERE aktif = true",
     );
-
-    // Total transaksi global
     const totalTransaksi = await pool.query(`
             SELECT COALESCE(SUM(p.harga_akhir), 0) as total
             FROM pesanan p
             WHERE p.status_pembayaran = 'sukses'
         `);
-
-    // Jumlah pesanan
     const jumlahPesanan = await pool.query("SELECT COUNT(*) FROM pesanan");
 
-    res.json({
-      jumlah_user: parseInt(jumlahUser.rows[0].count),
-      jumlah_penjual: parseInt(jumlahPenjual.rows[0].count),
-      jumlah_produk: parseInt(jumlahProduk.rows[0].count),
-      total_transaksi: parseFloat(totalTransaksi.rows[0].total),
-      jumlah_pesanan: parseInt(jumlahPesanan.rows[0].count),
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(
+      res,
+      {
+        jumlah_user: parseInt(jumlahUser.rows[0].count),
+        jumlah_penjual: parseInt(jumlahPenjual.rows[0].count),
+        jumlah_produk: parseInt(jumlahProduk.rows[0].count),
+        total_transaksi: parseFloat(totalTransaksi.rows[0].total),
+        jumlah_pesanan: parseInt(jumlahPesanan.rows[0].count),
+      },
+      "Admin statistics retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

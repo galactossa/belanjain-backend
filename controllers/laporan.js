@@ -1,6 +1,14 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
-// GET laporan by pelapor dengan PAGINATION
+// GET laporan by pelapor
 const getLaporanByPelapor = async (req, res) => {
   const { id_pelapor } = req.params;
   const { page = 1, limit = 10 } = req.query;
@@ -24,28 +32,30 @@ const getLaporanByPelapor = async (req, res) => {
       [id_pelapor, parseInt(limit), offset],
     );
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "Reports retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
-// GET semua laporan (admin only) dengan PAGINATION
+// GET semua laporan (admin only)
 const getAllLaporan = async (req, res) => {
   const { role, page = 1, limit = 10, status } = req.query;
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa melihat semua laporan" });
+    return forbidden(res, "Hanya admin yang bisa melihat semua laporan");
   }
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -83,19 +93,23 @@ const getAllLaporan = async (req, res) => {
 
     const result = await pool.query(query, params);
 
-    res.json({
-      data: result.rows,
-      pagination: {
-        current_page: parseInt(page),
-        per_page: parseInt(limit),
-        total_data: totalData,
-        total_page: totalPage,
-        filters: { status },
+    return success(
+      res,
+      {
+        data: result.rows,
+        pagination: {
+          current_page: parseInt(page),
+          per_page: parseInt(limit),
+          total_data: totalData,
+          total_page: totalPage,
+          filters: { status },
+        },
       },
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+      "All reports retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -104,13 +118,11 @@ const createLaporan = async (req, res) => {
   const { id_pelapor, tipe_target, id_target, alasan } = req.body;
 
   if (!id_pelapor || !tipe_target || !id_target || !alasan) {
-    return res.status(400).json({ message: "Semua field wajib diisi" });
+    return badRequest(res, "Semua field wajib diisi");
   }
 
   if (tipe_target !== "produk" && tipe_target !== "penjual") {
-    return res
-      .status(400)
-      .json({ message: 'tipe_target harus "produk" atau "penjual"' });
+    return badRequest(res, 'tipe_target harus "produk" atau "penjual"');
   }
 
   try {
@@ -118,10 +130,10 @@ const createLaporan = async (req, res) => {
       "INSERT INTO laporan (id_pelapor, tipe_target, id_target, alasan) VALUES ($1, $2, $3, $4) RETURNING *",
       [id_pelapor, tipe_target, id_target, alasan],
     );
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(res, result.rows[0], "Laporan berhasil dibuat");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -132,9 +144,7 @@ const updateStatusLaporan = async (req, res) => {
   const { role } = req.query;
 
   if (role !== "admin") {
-    return res
-      .status(403)
-      .json({ message: "Hanya admin yang bisa mengupdate status laporan" });
+    return forbidden(res, "Hanya admin yang bisa mengupdate status laporan");
   }
 
   try {
@@ -144,19 +154,16 @@ const updateStatusLaporan = async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Laporan tidak ditemukan" });
+      return notFound(res, "Laporan tidak ditemukan");
     }
 
-    // Jika status selesai dan tipe_target produk, nonaktifkan produk
     if (status === "selesai" && result.rows[0].tipe_target === "produk") {
       await pool.query("UPDATE produk SET aktif = false WHERE id_produk = $1", [
         result.rows[0].id_target,
       ]);
     }
 
-    // Jika status selesai dan tipe_target penjual, nonaktifkan toko dan user
     if (status === "selesai" && result.rows[0].tipe_target === "penjual") {
-      // Dapatkan id_pengguna dari toko
       const toko = await pool.query(
         "SELECT id_pengguna FROM toko WHERE id_toko = $1",
         [result.rows[0].id_target],
@@ -175,10 +182,10 @@ const updateStatusLaporan = async (req, res) => {
       ]);
     }
 
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Status laporan diupdate");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 

@@ -1,4 +1,12 @@
 const pool = require("../db/db");
+const {
+  success,
+  error,
+  created,
+  notFound,
+  badRequest,
+  forbidden,
+} = require("../middleware/responseFormatter");
 
 // GET notifikasi by pengguna
 const getNotifikasiByPengguna = async (req, res) => {
@@ -12,10 +20,10 @@ const getNotifikasiByPengguna = async (req, res) => {
         `,
       [id_pengguna],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows, "Notifications retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -31,10 +39,14 @@ const getNotifikasiBelumDibaca = async (req, res) => {
         `,
       [id_pengguna],
     );
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(
+      res,
+      result.rows,
+      "Unread notifications retrieved successfully",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -47,12 +59,12 @@ const markAsRead = async (req, res) => {
       [id],
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: "Notifikasi tidak ditemukan" });
+      return notFound(res, "Notifikasi tidak ditemukan");
     }
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, result.rows[0], "Notification marked as read");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -64,10 +76,10 @@ const markAllAsRead = async (req, res) => {
       "UPDATE notifikasi SET sudah_dibaca = true, updated_at = CURRENT_TIMESTAMP WHERE id_pengguna = $1 AND sudah_dibaca = false",
       [id_pengguna],
     );
-    res.json({ message: "Semua notifikasi ditandai sudah dibaca" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return success(res, null, "All notifications marked as read");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
@@ -77,15 +89,14 @@ const broadcastNotifikasi = async (req, res) => {
   const { admin_role } = req.query;
 
   if (admin_role !== "admin") {
-    return res.status(403).json({ message: "Hanya admin yang bisa broadcast" });
+    return forbidden(res, "Hanya admin yang bisa broadcast");
   }
 
   if (!judul || !pesan) {
-    return res.status(400).json({ message: "Judul dan pesan wajib diisi" });
+    return badRequest(res, "Judul dan pesan wajib diisi");
   }
 
   try {
-    // Ambil semua pengguna
     let query = "SELECT id_pengguna FROM pengguna WHERE aktif = true";
     const params = [];
 
@@ -96,7 +107,6 @@ const broadcastNotifikasi = async (req, res) => {
 
     const users = await pool.query(query, params);
 
-    // Insert notifikasi untuk setiap user
     for (const user of users.rows) {
       await pool.query(
         "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
@@ -104,10 +114,14 @@ const broadcastNotifikasi = async (req, res) => {
       );
     }
 
-    res.json({ message: `Broadcast dikirim ke ${users.rows.length} pengguna` });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    return created(
+      res,
+      { total_recipients: users.rows.length },
+      `Broadcast dikirim ke ${users.rows.length} pengguna`,
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
   }
 };
 
