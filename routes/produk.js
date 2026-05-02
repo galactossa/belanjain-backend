@@ -8,6 +8,7 @@ router.get("/", produkController.getAllProduk);
 router.get("/search", produkController.searchProduk);
 router.get("/filter", produkController.filterProduk);
 router.get("/:id", produkController.getProdukById);
+router.get("/:id/trend", produkController.getTrendProduk);
 router.get("/toko/:id_toko", produkController.getProdukByToko);
 router.get("/kategori/:id_kategori", produkController.getProdukByKategori);
 router.get("/suggestions", produkController.getSearchSuggestions);

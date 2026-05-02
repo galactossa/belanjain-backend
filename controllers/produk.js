@@ -396,6 +396,86 @@ const getSearchSuggestions = async (req, res) => {
   }
 };
 
+// GET trend produk (harga naik/turun)
+const getTrendProduk = async (req, res) => {
+  const { id } = req.params;
+  const { days = 7 } = req.query; // default bandingkan dengan 7 hari lalu
+
+  try {
+    // Cek apakah produk ada
+    const produkResult = await pool.query(
+      "SELECT id_produk, nama_produk, harga FROM produk WHERE id_produk = $1 AND aktif = true",
+      [id],
+    );
+    if (produkResult.rows.length === 0) {
+      return notFound(res, "Produk tidak ditemukan");
+    }
+
+    const produk = produkResult.rows[0];
+    const hargaSekarang = parseFloat(produk.harga);
+
+    // Cari harga historis dari pesanan (item_pesanan) yang sudah selesai
+    const historyResult = await pool.query(
+      `
+      SELECT ip.harga, p.created_at
+      FROM item_pesanan ip
+      JOIN pesanan p ON ip.id_pesanan = p.id_pesanan
+      WHERE ip.id_produk = $1 
+        AND p.status = 'selesai'
+        AND p.created_at >= NOW() - INTERVAL '${days} days'
+      ORDER BY p.created_at DESC
+      LIMIT 1
+      `,
+      [id],
+    );
+
+    let trend = null;
+    let persentase = 0;
+    let status = "stabil";
+    let arrow = "➡️";
+
+    if (historyResult.rows.length > 0) {
+      const hargaLalu = parseFloat(historyResult.rows[0].harga);
+      persentase = ((hargaSekarang - hargaLalu) / hargaLalu) * 100;
+
+      if (persentase > 5) {
+        status = "naik";
+        arrow = "📈";
+      } else if (persentase < -5) {
+        status = "turun";
+        arrow = "📉";
+      } else {
+        status = "stabil";
+        arrow = "➡️";
+      }
+
+      trend = {
+        status: status,
+        arrow: arrow,
+        persentase: Math.abs(Math.round(persentase)),
+        harga_sekarang: hargaSekarang,
+        harga_periode_lalu: hargaLalu,
+        periode: `${days} hari yang lalu`,
+      };
+    } else {
+      // Tidak ada data historis, return default
+      trend = {
+        status: "belum_cukup_data",
+        arrow: "❓",
+        persentase: 0,
+        harga_sekarang: hargaSekarang,
+        harga_periode_lalu: null,
+        periode: `Tidak ada data penjualan ${days} hari terakhir`,
+      };
+    }
+
+    return success(res, trend, "Trend produk retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
 module.exports = {
   getAllProduk,
   getProdukById,
@@ -407,4 +487,5 @@ module.exports = {
   searchProduk,
   filterProduk,
   getSearchSuggestions,
+  getTrendProduk,
 };

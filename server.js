@@ -31,6 +31,7 @@ const settingsRoutes = require("./routes/settings");
 const blogRoutes = require("./routes/blog");
 const searchHistoryRoutes = require("./routes/searchHistory");
 const loyaltyRoutes = require("./routes/loyalty");
+const rekomendasiRoutes = require("./routes/rekomendasi");
 
 // Gunakan routes
 app.use("/api/pengguna", penggunaRoutes);
@@ -53,6 +54,7 @@ app.use("/api/settings", settingsRoutes);
 app.use("/api/blogs", blogRoutes);
 app.use("/api/search-history", searchHistoryRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
+app.use("/api/rekomendasi", rekomendasiRoutes);
 
 // Test route
 app.get("/", (req, res) => {
@@ -79,6 +81,7 @@ app.get("/", (req, res) => {
       blogs: "/api/blogs",
       searchHistory: "/api/search-history",
       loyalty: "/api/loyalty",
+      rekomendasi: "/api/rekomendasi",
     },
   });
 });
