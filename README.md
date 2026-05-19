@@ -448,6 +448,147 @@ npm run dev
 
 <hr>
 
+<h3>Trend Produk</h3>
+
+<p><b>GET /api/produk/:id/trend</b> - Lihat tren harga produk (naik/turun) (public)</p>
+<pre>
+// Response Sukses (200)
+{
+  "status": "success",
+  "data": {
+    "status": "naik",
+    "arrow": "📈",
+    "persentase": 15,
+    "harga_sekarang": 18500000,
+    "harga_periode_lalu": 16000000,
+    "periode": "7 hari yang lalu"
+  },
+  "message": "Trend produk retrieved successfully"
+}
+
+// Response Error 404 (Produk tidak ditemukan)
+{
+  "status": "error",
+  "data": null,
+  "message": "Produk tidak ditemukan"
+}
+</pre>
+
+<hr>
+
+<h3>Rekomendasi Harga (Penjual)</h3>
+
+<p><b>GET /api/rekomendasi/harga/:id_produk</b> - Rekomendasi harga optimal untuk penjual (butuh token penjual/admin)</p>
+<pre>
+// Header: Authorization: Bearer &lt;token&gt;
+// Response Sukses (200)
+{
+  "status": "success",
+  "data": {
+    "id_produk": 8,
+    "nama_produk": "MacBook Air M2",
+    "harga_saat_ini": 18500000,
+    "harga_optimal": 17000000,
+    "strategi": "Harga Kompetitif",
+    "rekomendasi": "Rp17.000.000"
+  },
+  "message": "Rekomendasi harga retrieved successfully"
+}
+
+// Response Error 403 (Bukan penjual/admin)
+{
+  "status": "error",
+  "data": null,
+  "message": "Akses ditolak. Hanya untuk: penjual, admin"
+}
+</pre>
+
+<hr>
+
+<h3>Simulasi Antrian Order (Admin)</h3>
+
+<p><b>GET /api/simulasi/preview</b> - Preview data historis sebelum simulasi (butuh token admin)</p>
+<pre>
+// Header: Authorization: Bearer &lt;token&gt;
+// Response Sukses (200)
+{
+  "status": "success",
+  "data": {
+    "total_data_pesanan": 150,
+    "rata_rata_order_per_jam": 25.5,
+    "rata_rata_waktu_pembayaran_menit": 2.3,
+    "rata_rata_waktu_konfirmasi_seller_menit": 4.8,
+    "rata_rata_waktu_packing_menit": 3.2,
+    "jumlah_seller_aktif": 8
+  },
+  "message": "Data historis dari database"
+}
+</pre>
+
+<p><b>POST /api/simulasi/real-data</b> - Simulasi antrian order dengan data asli (butuh token admin)</p>
+<pre>
+// Header: Authorization: Bearer &lt;token&gt;
+// Request Body (opsional)
+{
+  "simulation_minutes": 480
+}
+
+// Response Sukses (200)
+{
+  "status": "success",
+  "data": {
+    "ringkasan": {
+      "total_order_selesai": 342,
+      "durasi_simulasi_menit": 480,
+      "throughput_per_jam": 43,
+      "rata_rata_waktu_tunggu_menit": 12.5,
+      "rata_rata_panjang_antrian": 8.2,
+      "utilasi_seller": 78,
+      "titik_hambat": "Konfirmasi Penjual"
+    },
+    "analisis": {
+      "status_utilasi": "Seller bekerja sangat keras (>80%). Pertimbangkan untuk menambah jumlah seller.",
+      "status_antrian": "Antrian cukup panjang (rata-rata 8.2 order).",
+      "rekomendasi": "Konfirmasi penjual adalah tahap paling lambat. Tambah jumlah seller aktif."
+    }
+  },
+  "message": "Simulasi antrian order selesai"
+}
+</pre>
+
+<p><b>POST /api/simulasi/manual</b> - Simulasi antrian order dengan parameter manual (what-if) (butuh token admin)</p>
+<pre>
+// Header: Authorization: Bearer &lt;token&gt;
+// Request Body
+{
+  "arrival_rate": 50,
+  "payment_duration": 2,
+  "seller_confirm_duration": 5,
+  "packing_duration": 3,
+  "active_sellers": 10,
+  "simulation_minutes": 480
+}
+
+// Response Sukses (200)
+{
+  "status": "success",
+  "data": {
+    "simulasi": {
+      "total_orders_completed": 380,
+      "throughput_per_hour": 47,
+      "avg_waiting_time_minutes": 8.5,
+      "bottleneck": "Konfirmasi Penjual"
+    },
+    "parameter_input": {
+      "order_masuk_per_jam": 50,
+      "jumlah_seller": 10,
+      "durasi_simulasi_menit": 480
+    }
+  },
+  "message": "Simulasi dengan parameter manual berhasil"
+}
+</pre>
+
 <h3>Notifikasi</h3>
 
 <p><b>GET /api/notifikasi/pengguna/:id_pengguna</b> - Lihat notifikasi (butuh token)</p>
