@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const produkController = require("../controllers/produk");
 const { verifyToken, checkRole } = require("../middleware/auth");
+const upload = require("../middleware/upload");
 
 // Public (semua orang bisa lihat produk)
 router.get("/", produkController.getAllProduk);
@@ -31,6 +32,31 @@ router.delete(
   verifyToken,
   checkRole(["penjual", "admin"]),
   produkController.deleteProduk,
+);
+
+// Upload gambar produk (penjual/admin)
+router.post(
+  "/:id/upload-gambar",
+  verifyToken,
+  checkRole(["penjual", "admin"]),
+  upload.single("gambar"),
+  produkController.uploadGambarProduk,
+);
+
+// Galeri produk
+router.post(
+  "/:id/galeri",
+  verifyToken,
+  checkRole(["penjual", "admin"]),
+  upload.single("gambar"),
+  produkController.addGaleriProduk,
+);
+router.get("/:id/galeri", produkController.getGaleriProduk);
+router.delete(
+  "/galeri/:id_image",
+  verifyToken,
+  checkRole(["penjual", "admin"]),
+  produkController.deleteGaleriProduk,
 );
 
 module.exports = router;

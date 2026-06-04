@@ -119,10 +119,38 @@ const deleteBlog = async (req, res) => {
   }
 };
 
+// UPLOAD foto artikel blog
+const uploadFotoBlog = async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.file) {
+    return badRequest(res, "File gambar wajib diupload");
+  }
+
+  try {
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    const result = await pool.query(
+      "UPDATE blogs SET foto_url = $1, updated_at = CURRENT_TIMESTAMP WHERE id_blog = $2 RETURNING *",
+      [imageUrl, id],
+    );
+
+    if (result.rows.length === 0) {
+      return notFound(res, "Artikel tidak ditemukan");
+    }
+
+    return success(res, result.rows[0], "Foto artikel berhasil diupload");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
 module.exports = {
   getAllBlogs,
   getBlogById,
   createBlog,
   updateBlog,
   deleteBlog,
+  uploadFotoBlog,
 };

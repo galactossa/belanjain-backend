@@ -106,10 +106,47 @@ const deleteSetting = async (req, res) => {
   }
 };
 
+// UPLOAD logo perusahaan
+const uploadLogoPerusahaan = async (req, res) => {
+  if (!req.file) {
+    return badRequest(res, "File gambar wajib diupload");
+  }
+
+  try {
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    const cek = await pool.query("SELECT * FROM settings WHERE key = $1", [
+      "company_logo",
+    ]);
+
+    if (cek.rows.length === 0) {
+      await pool.query(
+        "INSERT INTO settings (key, value, type) VALUES ($1, $2, $3)",
+        ["company_logo", imageUrl, "image"],
+      );
+    } else {
+      await pool.query(
+        "UPDATE settings SET value = $1, updated_at = CURRENT_TIMESTAMP WHERE key = $2",
+        [imageUrl, "company_logo"],
+      );
+    }
+
+    return success(
+      res,
+      { logo_url: imageUrl },
+      "Logo perusahaan berhasil diupload",
+    );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
 module.exports = {
   getAllSettings,
   getSettingByKey,
   createSetting,
   updateSetting,
   deleteSetting,
+  uploadLogoPerusahaan,
 };

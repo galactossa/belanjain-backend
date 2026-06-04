@@ -5,9 +5,9 @@ const {
   created,
   notFound,
   badRequest,
-  unauthorized,
-  forbidden,
 } = require("../middleware/responseFormatter");
+const fs = require("fs");
+const path = require("path");
 
 // GET semua produk dengan PAGINATION
 const getAllProduk = async (req, res) => {
@@ -399,10 +399,9 @@ const getSearchSuggestions = async (req, res) => {
 // GET trend produk (harga naik/turun)
 const getTrendProduk = async (req, res) => {
   const { id } = req.params;
-  const { days = 7 } = req.query; // default bandingkan dengan 7 hari lalu
+  const { days = 7 } = req.query;
 
   try {
-    // Cek apakah produk ada
     const produkResult = await pool.query(
       "SELECT id_produk, nama_produk, harga FROM produk WHERE id_produk = $1 AND aktif = true",
       [id],
@@ -414,7 +413,6 @@ const getTrendProduk = async (req, res) => {
     const produk = produkResult.rows[0];
     const hargaSekarang = parseFloat(produk.harga);
 
-    // Cari harga historis dari pesanan (item_pesanan) yang sudah selesai
     const historyResult = await pool.query(
       `
       SELECT ip.harga, p.created_at
@@ -458,7 +456,6 @@ const getTrendProduk = async (req, res) => {
         periode: `${days} hari yang lalu`,
       };
     } else {
-      // Tidak ada data historis, return default
       trend = {
         status: "belum_cukup_data",
         arrow: "❓",
@@ -470,6 +467,115 @@ const getTrendProduk = async (req, res) => {
     }
 
     return success(res, trend, "Trend produk retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// UPLOAD gambar produk
+const uploadGambarProduk = async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.file) {
+    return badRequest(res, "File gambar wajib diupload");
+  }
+
+  try {
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    const result = await pool.query(
+      "UPDATE produk SET url_gambar = $1, updated_at = CURRENT_TIMESTAMP WHERE id_produk = $2 RETURNING id_produk, nama_produk, url_gambar",
+      [imageUrl, id],
+    );
+
+    if (result.rows.length === 0) {
+      return notFound(res, "Produk tidak ditemukan");
+    }
+
+    return success(res, result.rows[0], "Gambar produk berhasil diupload");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// TAMBAH gambar galeri produk
+const addGaleriProduk = async (req, res) => {
+  const { id } = req.params;
+  const { is_primary } = req.body;
+
+  if (!req.file) {
+    return badRequest(res, "File gambar wajib diupload");
+  }
+
+  try {
+    const produkCheck = await pool.query(
+      "SELECT id_produk FROM produk WHERE id_produk = $1",
+      [id],
+    );
+    if (produkCheck.rows.length === 0) {
+      return notFound(res, "Produk tidak ditemukan");
+    }
+
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    if (is_primary === "true" || is_primary === true) {
+      await pool.query(
+        "UPDATE product_images SET is_primary = false WHERE id_produk = $1",
+        [id],
+      );
+    }
+
+    const result = await pool.query(
+      "INSERT INTO product_images (id_produk, image_url, is_primary) VALUES ($1, $2, $3) RETURNING *",
+      [id, imageUrl, is_primary === "true" || is_primary === true],
+    );
+
+    return created(res, result.rows[0], "Gambar galeri berhasil ditambahkan");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// GET semua galeri produk
+const getGaleriProduk = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "SELECT * FROM product_images WHERE id_produk = $1 ORDER BY is_primary DESC, created_at ASC",
+      [id],
+    );
+
+    return success(res, result.rows, "Galeri produk retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// DELETE gambar galeri
+const deleteGaleriProduk = async (req, res) => {
+  const { id_image } = req.params;
+
+  try {
+    const result = await pool.query(
+      "DELETE FROM product_images WHERE id_image = $1 RETURNING *",
+      [id_image],
+    );
+
+    if (result.rows.length === 0) {
+      return notFound(res, "Gambar tidak ditemukan");
+    }
+
+    const filePath = "./uploads/" + path.basename(result.rows[0].image_url);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+
+    return success(res, null, "Gambar galeri berhasil dihapus");
   } catch (err) {
     console.error(err);
     return error(res, "Server error", 500);
@@ -488,4 +594,8 @@ module.exports = {
   filterProduk,
   getSearchSuggestions,
   getTrendProduk,
+  uploadGambarProduk,
+  addGaleriProduk,
+  getGaleriProduk,
+  deleteGaleriProduk,
 };

@@ -10,6 +10,8 @@ const {
   unauthorized,
   forbidden,
 } = require("../middleware/responseFormatter");
+const fs = require("fs");
+const path = require("path");
 
 const JWT_SECRET = process.env.JWT_SECRET || "rahasia_default_ganti_nanti";
 
@@ -238,6 +240,33 @@ const getPenggunaByRole = async (req, res) => {
   }
 };
 
+// UPLOAD foto profil
+const uploadFotoProfil = async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.file) {
+    return badRequest(res, "File gambar wajib diupload");
+  }
+
+  try {
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    const result = await pool.query(
+      "UPDATE pengguna SET url_foto = $1, updated_at = CURRENT_TIMESTAMP WHERE id_pengguna = $2 RETURNING id_pengguna, nama, email, url_foto",
+      [imageUrl, id],
+    );
+
+    if (result.rows.length === 0) {
+      return notFound(res, "Pengguna tidak ditemukan");
+    }
+
+    return success(res, result.rows[0], "Foto profil berhasil diupload");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
 module.exports = {
   getAllPengguna,
   getPenggunaById,
@@ -247,4 +276,5 @@ module.exports = {
   updateRolePengguna,
   deletePengguna,
   getPenggunaByRole,
+  uploadFotoProfil,
 };

@@ -6,6 +6,8 @@ const {
   notFound,
   badRequest,
 } = require("../middleware/responseFormatter");
+const fs = require("fs");
+const path = require("path");
 
 // GET semua toko
 const getAllToko = async (req, res) => {
@@ -113,10 +115,66 @@ const getProdukByToko = async (req, res) => {
   }
 };
 
+// UPLOAD logo toko
+const uploadLogoToko = async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.file) {
+    return badRequest(res, "File gambar wajib diupload");
+  }
+
+  try {
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    const result = await pool.query(
+      "UPDATE toko SET logo_toko = $1, updated_at = CURRENT_TIMESTAMP WHERE id_toko = $2 RETURNING id_toko, nama_toko, logo_toko",
+      [imageUrl, id],
+    );
+
+    if (result.rows.length === 0) {
+      return notFound(res, "Toko tidak ditemukan");
+    }
+
+    return success(res, result.rows[0], "Logo toko berhasil diupload");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// UPLOAD banner toko
+const uploadBannerToko = async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.file) {
+    return badRequest(res, "File gambar wajib diupload");
+  }
+
+  try {
+    const imageUrl = `/uploads/${req.file.filename}`;
+
+    const result = await pool.query(
+      "UPDATE toko SET banner_toko = $1, updated_at = CURRENT_TIMESTAMP WHERE id_toko = $2 RETURNING id_toko, nama_toko, banner_toko",
+      [imageUrl, id],
+    );
+
+    if (result.rows.length === 0) {
+      return notFound(res, "Toko tidak ditemukan");
+    }
+
+    return success(res, result.rows[0], "Banner toko berhasil diupload");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
 module.exports = {
   getAllToko,
   getTokoById,
   createToko,
   updateToko,
   getProdukByToko,
+  uploadLogoToko,
+  uploadBannerToko,
 };

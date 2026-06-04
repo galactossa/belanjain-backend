@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const settingsController = require("../controllers/settings");
 const { verifyToken, checkRole } = require("../middleware/auth");
+const upload = require("../middleware/upload");
 
 // Public (bisa diakses semua orang)
 router.get("/", settingsController.getAllSettings);
@@ -25,6 +26,15 @@ router.delete(
   verifyToken,
   checkRole(["admin"]),
   settingsController.deleteSetting,
+);
+
+// Upload logo perusahaan (admin)
+router.post(
+  "/upload-logo",
+  verifyToken,
+  checkRole(["admin"]),
+  upload.single("logo"),
+  settingsController.uploadLogoPerusahaan,
 );
 
 module.exports = router;

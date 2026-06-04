@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const penggunaController = require("../controllers/pengguna");
 const { verifyToken, checkRole } = require("../middleware/auth");
+const upload = require("../middleware/upload");
 
 // ========== PUBLIC ROUTES (tanpa token) ==========
 router.get("/", penggunaController.getAllPengguna);
@@ -23,6 +24,14 @@ router.delete(
   verifyToken,
   checkRole(["admin"]),
   penggunaController.deletePengguna,
+);
+
+// Upload foto profil
+router.post(
+  "/:id/upload-foto",
+  verifyToken,
+  upload.single("foto"),
+  penggunaController.uploadFotoProfil,
 );
 
 module.exports = router;

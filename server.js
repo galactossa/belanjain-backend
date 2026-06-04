@@ -1,16 +1,48 @@
 const express = require("express");
 const cors = require("cors");
 require("dotenv").config();
+const http = require("http");
+const { Server } = require("socket.io");
+const session = require("express-session");
+const passport = require("passport");
+require("./config/passport");
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// ========== MIDDLEWARE ==========
+// CORS dengan credentials untuk session
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Import semua routes
+// Session configuration (untuk Passport)
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "rahasia_session_default",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000, // 24 jam
+      httpOnly: true,
+      secure: false, // false untuk development (localhost), true untuk production (HTTPS)
+    },
+  }),
+);
+
+// Passport middleware
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Serve static files dari folder uploads
+app.use("/uploads", express.static("uploads"));
+
+// ========== IMPORT ROUTES ==========
 const penggunaRoutes = require("./routes/pengguna");
 const alamatRoutes = require("./routes/alamat");
 const tokoRoutes = require("./routes/toko");
@@ -33,8 +65,13 @@ const searchHistoryRoutes = require("./routes/searchHistory");
 const loyaltyRoutes = require("./routes/loyalty");
 const rekomendasiRoutes = require("./routes/rekomendasi");
 const simulasiRoutes = require("./routes/simulasi");
+const chatRoutes = require("./routes/chat");
+const exportRoutes = require("./routes/export");
+const ongkirRoutes = require("./routes/ongkir");
+const paymentRoutes = require("./routes/payment");
+const authRoutes = require("./routes/auth");
 
-// Gunakan routes
+// ========== USE ROUTES ==========
 app.use("/api/pengguna", penggunaRoutes);
 app.use("/api/alamat", alamatRoutes);
 app.use("/api/toko", tokoRoutes);
@@ -57,8 +94,13 @@ app.use("/api/search-history", searchHistoryRoutes);
 app.use("/api/loyalty", loyaltyRoutes);
 app.use("/api/rekomendasi", rekomendasiRoutes);
 app.use("/api/simulasi", simulasiRoutes);
+app.use("/api/chat", chatRoutes);
+app.use("/api/export", exportRoutes);
+app.use("/api/ongkir", ongkirRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/api/auth", authRoutes);
 
-// Test route
+// ========== TEST ROUTE ==========
 app.get("/", (req, res) => {
   res.json({
     message: "API BelanjaIn is running!",
@@ -85,10 +127,136 @@ app.get("/", (req, res) => {
       loyalty: "/api/loyalty",
       rekomendasi: "/api/rekomendasi",
       simulasi: "/api/simulasi",
+      chat: "/api/chat",
+      export: "/api/export",
+      ongkir: "/api/ongkir",
+      payment: "/api/payment",
+      auth: "/api/auth",
     },
   });
 });
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+// ========== SOCKET.IO CHAT SYSTEM ==========
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
 });
+
+const pool = require("./db/db");
+
+// Store online users
+const onlineUsers = new Map();
+
+io.on("connection", (socket) => {
+  console.log("User connected:", socket.id);
+
+  // User login ke chat (set user info)
+  socket.on("user-online", async (data) => {
+    const { user_id, role, name } = data;
+    socket.userId = user_id;
+    socket.userRole = role;
+    socket.userName = name;
+
+    onlineUsers.set(user_id, {
+      socketId: socket.id,
+      role: role,
+      name: name,
+    });
+
+    console.log(`User ${name} (${role}) is online`);
+
+    // Broadcast online users ke semua
+    io.emit("online-users", Array.from(onlineUsers.keys()));
+  });
+
+  // Kirim pesan
+  socket.on("send-message", async (data) => {
+    const { receiver_id, message, sender_id, sender_name, sender_role } = data;
+
+    try {
+      // Simpan pesan ke database
+      const result = await pool.query(
+        `INSERT INTO chat_messages (sender_id, receiver_id, message, is_read, created_at) 
+                 VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
+                 RETURNING id, sender_id, receiver_id, message, is_read, created_at`,
+        [sender_id, receiver_id, message, false],
+      );
+
+      const newMessage = result.rows[0];
+      newMessage.sender_name = sender_name;
+      newMessage.sender_role = sender_role;
+
+      // Kirim ke receiver jika online
+      const receiver = onlineUsers.get(receiver_id);
+      if (receiver) {
+        io.to(receiver.socketId).emit("new-message", newMessage);
+      }
+
+      // Kirim balik ke pengirim sebagai konfirmasi
+      socket.emit("message-sent", newMessage);
+    } catch (err) {
+      console.error("Error saving message:", err);
+      socket.emit("message-error", { error: "Gagal menyimpan pesan" });
+    }
+  });
+
+  // Tandai pesan sudah dibaca
+  socket.on("mark-read", async (data) => {
+    const { message_ids, sender_id } = data;
+
+    try {
+      await pool.query(
+        `UPDATE chat_messages SET is_read = true 
+                 WHERE id = ANY($1::int[]) AND sender_id = $2`,
+        [message_ids, sender_id],
+      );
+
+      // Kirim notifikasi ke pengirim bahwa pesan sudah dibaca
+      const receiver = onlineUsers.get(sender_id);
+      if (receiver) {
+        io.to(receiver.socketId).emit("messages-read", { message_ids });
+      }
+    } catch (err) {
+      console.error("Error marking messages as read:", err);
+    }
+  });
+
+  // User typing
+  socket.on("typing", (data) => {
+    const { receiver_id, is_typing } = data;
+    const receiver = onlineUsers.get(receiver_id);
+    if (receiver) {
+      io.to(receiver.socketId).emit("user-typing", {
+        user_id: socket.userId,
+        user_name: socket.userName,
+        is_typing: is_typing,
+      });
+    }
+  });
+
+  // Disconnect
+  socket.on("disconnect", () => {
+    if (socket.userId) {
+      onlineUsers.delete(socket.userId);
+      io.emit("online-users", Array.from(onlineUsers.keys()));
+      console.log(`User ${socket.userName} disconnected`);
+    }
+  });
+});
+
+// ========== START SERVER ==========
+server.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  console.log(`Socket.io chat server is ready`);
+});
+
+// ========== CRON SCHEDULER ==========
+try {
+  require("./cron/scheduler");
+  console.log("[SERVER] Cron scheduler loaded successfully");
+} catch (err) {
+  console.error("[SERVER] Failed to load cron scheduler:", err.message);
+}
