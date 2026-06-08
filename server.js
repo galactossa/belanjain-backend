@@ -1,10 +1,28 @@
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
 const session = require("express-session");
 const passport = require("passport");
+require("dotenv").config();
+
+// Debug environment (hapus nanti setelah berhasil)
+console.log("🔍 ENVIRONMENT CHECK:");
+console.log(
+  "   GOOGLE_CLIENT_ID:",
+  process.env.GOOGLE_CLIENT_ID ? "✅ EXISTS" : "❌ MISSING",
+);
+console.log(
+  "   GOOGLE_CLIENT_SECRET:",
+  process.env.GOOGLE_CLIENT_SECRET ? "✅ EXISTS" : "❌ MISSING",
+);
+console.log("   DB_HOST:", process.env.DB_HOST ? "✅ EXISTS" : "❌ MISSING");
+console.log(
+  "   DATABASE_URL:",
+  process.env.DATABASE_URL ? "✅ EXISTS" : "❌ MISSING",
+);
+console.log("   PORT:", process.env.PORT || "3000");
+
 require("./config/passport");
 
 const app = express();
@@ -30,7 +48,7 @@ app.use(
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 jam
       httpOnly: true,
-      secure: false, // false untuk development (localhost), true untuk production (HTTPS)
+      secure: process.env.NODE_ENV === "production" ? true : false,
     },
   }),
 );

@@ -1,5 +1,4 @@
 const passport = require("passport");
-const GoogleStrategy = require("passport-google-oauth20").Strategy;
 const pool = require("../db/db");
 const bcrypt = require("bcrypt");
 require("dotenv").config();
@@ -22,62 +21,89 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// Google Strategy
-passport.use(
-  new GoogleStrategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.GOOGLE_CALLBACK_URL,
-      scope: ["profile", "email"],
-    },
-    async (accessToken, refreshToken, profile, done) => {
-      try {
-        const email =
-          profile.emails && profile.emails[0] ? profile.emails[0].value : null;
+// ============================================
+// GOOGLE OAUTH - HANYA JALAN JIKA CREDENTIALS ADA
+// ============================================
 
-        if (!email) {
-          return done(new Error("No email found from Google account"), null);
-        }
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
-        // Cek user sudah ada atau belum
-        const existingUser = await pool.query(
-          "SELECT * FROM pengguna WHERE email = $1",
-          [email],
-        );
+if (
+  GOOGLE_CLIENT_ID &&
+  GOOGLE_CLIENT_SECRET &&
+  GOOGLE_CLIENT_ID !== "undefined"
+) {
+  console.log("✅ Google OAuth ENABLED");
+  const GoogleStrategy = require("passport-google-oauth20").Strategy;
 
-        if (existingUser.rows.length > 0) {
-          const user = existingUser.rows[0];
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID: GOOGLE_CLIENT_ID,
+        clientSecret: GOOGLE_CLIENT_SECRET,
+        callbackURL:
+          process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback",
+        scope: ["profile", "email"],
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const email =
+            profile.emails && profile.emails[0]
+              ? profile.emails[0].value
+              : null;
 
-          if (!user.google_id) {
-            await pool.query(
-              "UPDATE pengguna SET google_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id_pengguna = $2",
-              [profile.id, user.id_pengguna],
-            );
+          if (!email) {
+            return done(new Error("No email found from Google account"), null);
           }
 
-          return done(null, user);
-        }
+          const existingUser = await pool.query(
+            "SELECT * FROM pengguna WHERE email = $1",
+            [email],
+          );
 
-        // Buat user baru
-        const nama = profile.displayName || email.split("@")[0];
-        const foto =
-          profile.photos && profile.photos[0] ? profile.photos[0].value : null;
-        const randomPassword = Math.random().toString(36).slice(-16);
-        const hashedPassword = await bcrypt.hash(randomPassword, 10);
+          if (existingUser.rows.length > 0) {
+            const user = existingUser.rows[0];
 
-        const result = await pool.query(
-          `INSERT INTO pengguna (nama, email, password, role, url_foto, google_id, aktif) 
+            if (!user.google_id) {
+              await pool.query(
+                "UPDATE pengguna SET google_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id_pengguna = $2",
+                [profile.id, user.id_pengguna],
+              );
+            }
+
+            return done(null, user);
+          }
+
+          const nama = profile.displayName || email.split("@")[0];
+          const foto =
+            profile.photos && profile.photos[0]
+              ? profile.photos[0].value
+              : null;
+          const randomPassword = Math.random().toString(36).slice(-16);
+          const hashedPassword = await bcrypt.hash(randomPassword, 10);
+
+          const result = await pool.query(
+            `INSERT INTO pengguna (nama, email, password, role, url_foto, google_id, aktif) 
              VALUES ($1, $2, $3, $4, $5, $6, true) 
              RETURNING id_pengguna, nama, email, role, url_foto`,
-          [nama, email, hashedPassword, "pembeli", foto, profile.id],
-        );
+            [nama, email, hashedPassword, "pembeli", foto, profile.id],
+          );
 
-        return done(null, result.rows[0]);
-      } catch (err) {
-        console.error("Google OAuth error:", err);
-        return done(err, null);
-      }
-    },
-  ),
-);
+          return done(null, result.rows[0]);
+        } catch (err) {
+          console.error("Google OAuth error:", err);
+          return done(err, null);
+        }
+      },
+    ),
+  );
+} else {
+  console.warn("⚠️ Google OAuth DISABLED - Missing credentials in environment");
+  console.warn("   GOOGLE_CLIENT_ID:", GOOGLE_CLIENT_ID ? "set" : "missing");
+  console.warn(
+    "   GOOGLE_CLIENT_SECRET:",
+    GOOGLE_CLIENT_SECRET ? "set" : "missing",
+  );
+}
+
+module.exports = passport;
