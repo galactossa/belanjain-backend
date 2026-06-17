@@ -31,7 +31,11 @@ const port = process.env.PORT || 3000;
 // ========== MIDDLEWARE ==========
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "https://belanjain.vercel.app",
+      "https://belanjain-frontend.vercel.app",
+    ],
     credentials: true,
   }),
 );
