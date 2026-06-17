@@ -123,7 +123,7 @@ const getChatRooms = async (req, res) => {
       });
     }
 
-    // Sort by last message time (terbaru di atas)
+    // Sort by last message time
     rooms.sort((a, b) => {
       if (!a.last_message_time) return 1;
       if (!b.last_message_time) return -1;

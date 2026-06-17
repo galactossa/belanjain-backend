@@ -10,20 +10,72 @@ const komercePayment = require("../services/komercePayment");
 // ========== 1. GET PAYMENT METHODS ==========
 const getPaymentMethods = async (req, res) => {
   try {
+    console.log("📡 Getting payment methods...");
     const result = await komercePayment.getPaymentMethods();
 
-    if (result.meta && result.meta.code === 200) {
+    console.log("📡 Payment methods result:", JSON.stringify(result, null, 2));
+
+    if (result.data && Array.isArray(result.data)) {
       return success(res, result.data, "Metode pembayaran berhasil diambil");
-    } else {
-      return error(
-        res,
-        result.meta?.message || "Gagal mengambil metode pembayaran",
-        500,
-      );
     }
+
+    if (result.meta && result.meta.code === 200 && result.data) {
+      return success(res, result.data, "Metode pembayaran berhasil diambil");
+    }
+
+    console.log("⚠️ No payment methods from API, using fallback");
+    return success(
+      res,
+      [
+        {
+          id: "bca_va",
+          name: "BCA Virtual Account",
+          type: "bank_transfer",
+          channel_code: "BCA",
+        },
+        {
+          id: "mandiri_va",
+          name: "Mandiri Virtual Account",
+          type: "bank_transfer",
+          channel_code: "MANDIRI",
+        },
+        {
+          id: "bni_va",
+          name: "BNI Virtual Account",
+          type: "bank_transfer",
+          channel_code: "BNI",
+        },
+        { id: "qris", name: "QRIS", type: "qris", channel_code: "QRIS" },
+      ],
+      "Metode pembayaran berhasil diambil (fallback)",
+    );
   } catch (err) {
-    console.error(err);
-    return error(res, "Server error", 500);
+    console.error("❌ Error in getPaymentMethods:", err);
+    return success(
+      res,
+      [
+        {
+          id: "bca_va",
+          name: "BCA Virtual Account",
+          type: "bank_transfer",
+          channel_code: "BCA",
+        },
+        {
+          id: "mandiri_va",
+          name: "Mandiri Virtual Account",
+          type: "bank_transfer",
+          channel_code: "MANDIRI",
+        },
+        {
+          id: "bni_va",
+          name: "BNI Virtual Account",
+          type: "bank_transfer",
+          channel_code: "BNI",
+        },
+        { id: "qris", name: "QRIS", type: "qris", channel_code: "QRIS" },
+      ],
+      "Metode pembayaran berhasil diambil (fallback)",
+    );
   }
 };
 
@@ -31,8 +83,8 @@ const getPaymentMethods = async (req, res) => {
 const createPayment = async (req, res) => {
   const {
     order_id,
-    payment_type, // 'bank_transfer' atau 'qris'
-    channel_code, // untuk VA: 'BCA', 'BNI', 'MANDIRI', dll
+    payment_type,
+    channel_code,
     amount,
     customer_name,
     customer_email,
@@ -40,6 +92,17 @@ const createPayment = async (req, res) => {
     items,
     expiry_duration = 3600,
   } = req.body;
+
+  console.log("📡 Create payment request:", {
+    order_id,
+    payment_type,
+    channel_code,
+    amount,
+    customer_name,
+    customer_email,
+    customer_phone,
+    items: items?.length || 0,
+  });
 
   if (
     !order_id ||
@@ -69,6 +132,15 @@ const createPayment = async (req, res) => {
   };
 
   try {
+    // 🔥 FORMAT ITEMS DENGAN PRICE NUMBER
+    const formattedItems = (items || []).map((item) => ({
+      name: String(item.name || "Produk"),
+      quantity: Number(item.quantity || 1),
+      price: Number(item.price || 0),
+    }));
+
+    console.log("📦 Formatted items:", JSON.stringify(formattedItems, null, 2));
+
     let result;
 
     if (payment_type === "qris") {
@@ -76,27 +148,29 @@ const createPayment = async (req, res) => {
         order_id,
         amount,
         customer,
-        items,
+        formattedItems,
       );
     } else {
       result = await komercePayment.createVAPayment(
         order_id,
         amount,
         customer,
-        items,
+        formattedItems,
         expiry_duration,
       );
     }
 
+    console.log("📡 Komerce create response:", JSON.stringify(result, null, 2));
+
     if (result.meta && result.meta.code === 200) {
-      // Simpan data pembayaran ke database lokal
       const paymentData = result.data;
 
+      // Simpan ke database
       await pool.query(
         `INSERT INTO payments_komerce (
-                    payment_id, order_id, payment_type, amount, status, 
-                    va_number, qr_string, payment_url, customer_name, customer_email
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+          payment_id, order_id, payment_type, amount, status, 
+          va_number, qr_string, payment_url, customer_name, customer_email
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           paymentData.id,
           order_id,
@@ -124,11 +198,12 @@ const createPayment = async (req, res) => {
         "Transaksi pembayaran berhasil dibuat",
       );
     } else {
+      console.error("❌ Komerce error:", result.meta);
       return error(res, result.meta?.message || "Gagal membuat transaksi", 500);
     }
   } catch (err) {
-    console.error(err);
-    return error(res, "Server error", 500);
+    console.error("❌ Create payment error:", err);
+    return error(res, err.message || "Server error", 500);
   }
 };
 
@@ -144,7 +219,6 @@ const checkPaymentStatus = async (req, res) => {
     const result = await komercePayment.getPaymentStatus(payment_id);
 
     if (result.meta && result.meta.code === 200) {
-      // Update status di database lokal
       const paymentData = result.data;
 
       await pool.query(
@@ -154,7 +228,6 @@ const checkPaymentStatus = async (req, res) => {
         [paymentData.status, payment_id],
       );
 
-      // Jika status PAID, update status pesanan di tabel pesanan
       if (paymentData.status === "PAID") {
         const paymentRecord = await pool.query(
           "SELECT order_id FROM payments_komerce WHERE payment_id = $1",
@@ -171,12 +244,11 @@ const checkPaymentStatus = async (req, res) => {
             [paymentRecord.rows[0].order_id],
           );
 
-          // Buat notifikasi ke user
           await pool.query(
             `INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) 
                          VALUES ($1, $2, $3, $4)`,
             [
-              customer_id,
+              paymentRecord.rows[0].id_pengguna,
               "Pembayaran Berhasil",
               `Pembayaran untuk pesanan #${paymentRecord.rows[0].order_id} telah dikonfirmasi.`,
               "pembayaran",
@@ -239,15 +311,11 @@ const cancelPayment = async (req, res) => {
   }
 };
 
-// ========== 5. WEBHOOK HANDLER (untuk callback dari payment gateway) ==========
+// ========== 5. WEBHOOK HANDLER ==========
 const paymentWebhook = async (req, res) => {
   const { payment_id, status, signature } = req.body;
 
-  // Verifikasi signature (opsional, untuk keamanan)
-  // Di sini kamu bisa verifikasi signature dengan API key
-
   try {
-    // Update status di database lokal
     await pool.query(
       `UPDATE payments_komerce 
              SET status = $1, updated_at = CURRENT_TIMESTAMP 
@@ -255,7 +323,6 @@ const paymentWebhook = async (req, res) => {
       [status, payment_id],
     );
 
-    // Jika status PAID, update status pesanan
     if (status === "PAID") {
       const paymentRecord = await pool.query(
         "SELECT order_id FROM payments_komerce WHERE payment_id = $1",

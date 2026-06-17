@@ -14,10 +14,9 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
-    // Format: timestamp-nama-asli-file
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + "-" + uniqueSuffix + ext);
+    cb(null, "profile-" + uniqueSuffix + ext);
   },
 });
 
@@ -36,15 +35,38 @@ const fileFilter = (req, file, cb) => {
       new Error(
         "Hanya file gambar yang diperbolehkan (jpeg, jpg, png, gif, webp)",
       ),
+      false,
     );
   }
 };
 
-// Konfigurasi multer
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
   fileFilter: fileFilter,
 });
 
-module.exports = upload;
+// ========== ERROR HANDLER UNTUK MULTER ==========
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({
+        status: "error",
+        message: "Ukuran file terlalu besar. Maksimal 5MB.",
+      });
+    }
+    return res.status(400).json({
+      status: "error",
+      message: `Upload error: ${err.message}`,
+    });
+  }
+  if (err) {
+    return res.status(400).json({
+      status: "error",
+      message: err.message,
+    });
+  }
+  next();
+};
+
+module.exports = { upload, handleMulterError };

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const settingsController = require("../controllers/settings");
 const { verifyToken, checkRole } = require("../middleware/auth");
-const upload = require("../middleware/upload");
+const { upload } = require("../middleware/upload");
 
 // Public (bisa diakses semua orang)
 router.get("/", settingsController.getAllSettings);

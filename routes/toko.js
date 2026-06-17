@@ -2,14 +2,15 @@ const express = require("express");
 const router = express.Router();
 const tokoController = require("../controllers/toko");
 const { verifyToken, checkRole } = require("../middleware/auth");
-const upload = require("../middleware/upload");
+const { upload } = require("../middleware/upload");
 
-// ========== PUBLIC ROUTES (tanpa token) ==========
+// PUBLIC ROUTES (tanpa token)
 router.get("/", tokoController.getAllToko);
 router.get("/:id", tokoController.getTokoById);
 router.get("/:id_toko/produk", tokoController.getProdukByToko);
+router.get("/user/:userId", verifyToken, tokoController.getTokoByUser);
 
-// ========== PROTECTED ROUTES (butuh login) ==========
+// PROTECTED ROUTES (butuh login)
 router.post("/", verifyToken, tokoController.createToko);
 router.put("/:id", verifyToken, tokoController.updateToko);
 

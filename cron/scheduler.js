@@ -6,9 +6,7 @@ const {
   deleteExpiredWishlist,
 } = require("./wishlistReminder");
 
-// =====================================================
 // JADWAL CRON JOBS
-// =====================================================
 
 // 1. Cek wishlist diskon - setiap hari jam 08:00, 12:00, 18:00
 cron.schedule("0 8,12,18 * * *", () => {

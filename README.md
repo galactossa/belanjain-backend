@@ -1,72 +1,134 @@
-<h1>BelanjaIn Backend API</h1>
+````markdown
+# BelanjaIn Backend API
 
-<p>Backend untuk aplikasi e-commerce BelanjaIn. Dibangun dengan Node.js, Express.js, dan PostgreSQL.</p>
+Backend untuk aplikasi e-commerce BelanjaIn. Dibangun dengan Node.js, Express.js, dan PostgreSQL.
 
-<hr>
+---
 
-<h2>Cara Menjalankan</h2>
+## 📋 Daftar Isi
 
-<p><b>1. Clone repository</b></p>
-<pre>
+- [Cara Menjalankan](#-cara-menjalankan)
+- [Format Response Standar](#-format-response-standar)
+- [Daftar Endpoint API](#-daftar-endpoint-api)
+- [Tech Stack](#-tech-stack)
+- [Role dan Akses](#-role-dan-akses)
+- [Catatan](#-catatan)
+
+---
+
+## 🚀 Cara Menjalankan
+
+**1. Clone repository**
+
+```bash
 git clone https://github.com/galactossa/belanjain-backend.git
 cd belanjain-backend
-</pre>
+```
+````
 
-<p><b>2. Install dependencies</b></p>
-<pre>
+**2. Install dependencies**
+
+```bash
 npm install
-</pre>
+```
 
-<p><b>3. Setup environment variable</b></p>
-<p>Buat file <code>.env</code> di root folder:</p>
-<pre>
+**3. Setup environment variable**
+
+Buat file `.env` di root folder:
+
+```env
+# Database Configuration (Local)
 DB_USER=postgres
 DB_PASSWORD=password_mu
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=BelanjaIn
+DB_NAME=BelanjaIn1
+
+# Server Configuration
 PORT=3000
-JWT_SECRET=rahasia_jwt_kamu
-</pre>
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
 
-<p><b>4. Jalankan server</b></p>
-<pre>
+# JWT & Session
+JWT_SECRET=rahasia_jwt_kamu_min_32_characters
+SESSION_SECRET=rahasia_session_kamu_min_32_characters
+
+# Google OAuth (Optional)
+GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+
+# Biteship API (Ongkir) - Optional
+BITESHIP_API_KEY=your_biteship_api_key
+BITESHIP_BASE_URL=https://api.biteship.com/v1
+
+# Komerce Payment API - Optional
+KOMERCE_API_KEY=your_komerce_api_key
+KOMERCE_BASE_URL=https://api-sandbox.collaborator.komerce.id/user
+KOMERCE_PAYMENT_URL=https://pay-sandbox.komerce.id
+
+# Cron Jobs (Optional)
+API_BASE_URL=http://localhost:3000
+DISCORD_WEBHOOK_URL=optional_discord_webhook_for_logging
+```
+
+**4. Setup Database**
+
+```bash
+# Import database dump
+psql -U postgres -f BelanjaIn1.sql
+
+# Atau buat database manual
+createdb BelanjaIn1
+psql -U postgres -d BelanjaIn1 -f BelanjaIn1.sql
+```
+
+**5. Jalankan server**
+
+```bash
+# Development mode (dengan auto-reload)
 npm run dev
-</pre>
 
-<p>Server berjalan di: <b>http://localhost:3000</b></p>
+# Production mode
+npm start
+```
 
-<hr>
+Server berjalan di: **http://localhost:3000**
 
-<h2>Format Response Standar</h2>
+---
 
-<p><b>Sukses (200/201):</b></p>
-<pre>
+## 📦 Format Response Standar
+
+**Sukses (200/201):**
+
+```json
 {
   "status": "success",
   "data": { ... },
   "message": "Pesan sukses"
 }
-</pre>
+```
 
-<p><b>Error (400/401/403/404/500):</b></p>
-<pre>
+**Error (400/401/403/404/500):**
+
+```json
 {
   "status": "error",
   "data": null,
   "message": "Pesan error"
 }
-</pre>
+```
 
-<hr>
+---
 
-<h2>Daftar Endpoint API</h2>
+## 🔗 Daftar Endpoint API
 
-<h3>Autentikasi (Pembeli)</h3>
+### 🔐 Autentikasi (Pembeli)
 
-<p><b>POST /api/pengguna/register</b> - Registrasi akun baru</p>
-<pre>
-// Request Body
+**POST /api/pengguna/register** - Registrasi akun baru
+
+```bash
+# Request Body
 {
   "nama": "Tora Eldoardo Eko Putra",
   "email": "tora@gmail.com",
@@ -74,7 +136,7 @@ npm run dev
   "telepon": "08123456789"
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": {
@@ -86,23 +148,24 @@ npm run dev
   "message": "Registrasi berhasil"
 }
 
-// Response Error 400 (Email sudah terdaftar)
+# Response Error 400 (Email sudah terdaftar)
 {
   "status": "error",
   "data": null,
   "message": "Email sudah terdaftar"
 }
-</pre>
+```
 
-<p><b>POST /api/pengguna/login</b> - Login ke akun</p>
-<pre>
-// Request Body
+**POST /api/pengguna/login** - Login ke akun
+
+```bash
+# Request Body
 {
   "email": "tora@gmail.com",
   "password": "123456"
 }
 
-// Response Sukses (200)
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
@@ -111,62 +174,100 @@ npm run dev
       "id_pengguna": 1,
       "nama": "Tora Eldoardo Eko Putra",
       "email": "tora@gmail.com",
-      "role": "pembeli"
+      "role": "pembeli",
+      "telepon": "08123456789",
+      "url_foto": null
     }
   },
   "message": "Login berhasil"
 }
 
-// Response Error 401 (Password salah)
+# Response Error 401 (Password salah)
 {
   "status": "error",
   "data": null,
   "message": "Email atau password salah"
 }
 
-// Response Error 403 (Akun nonaktif)
+# Response Error 403 (Akun nonaktif)
 {
   "status": "error",
   "data": null,
   "message": "Akun anda telah dinonaktifkan"
 }
-</pre>
+```
 
-<hr>
+**GET /api/pengguna/me** - Get profile sendiri (butuh token)
 
-<h3>Profil dan Alamat (Pembeli)</h3>
+```bash
+# Header: Authorization: Bearer <token>
 
-<p><b>PUT /api/pengguna/:id</b> - Edit profil (butuh token)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Request Body
+# Response Sukses (200)
+{
+  "status": "success",
+  "data": {
+    "id_pengguna": 1,
+    "nama": "Tora Eldoardo Eko Putra",
+    "email": "tora@gmail.com",
+    "role": "pembeli",
+    "telepon": "08123456789",
+    "url_foto": null,
+    "aktif": true,
+    "created_at": "2026-06-15T22:45:04.771Z"
+  }
+}
+```
+
+---
+
+### 🔑 Google OAuth
+
+**GET /api/auth/google** - Redirect ke Google login
+
+**GET /api/auth/google/callback** - Callback Google (redirect ke frontend dengan token)
+
+**GET /api/auth/status** - Cek status login Google (butuh token)
+
+**POST /api/auth/logout** - Logout Google
+
+---
+
+### 👤 Profil dan Alamat (Pembeli)
+
+**PUT /api/pengguna/:id** - Edit profil (butuh token)
+
+```bash
+# Header: Authorization: Bearer <token>
+# Request Body
 {
   "nama": "Nama Baru",
   "telepon": "08123456789"
 }
 
-// Response Sukses (200)
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
     "id_pengguna": 1,
     "nama": "Nama Baru",
-    "email": "tora@gmail.com"
+    "email": "tora@gmail.com",
+    "telepon": "08123456789"
   },
   "message": "Data berhasil diupdate"
 }
+```
 
-// Response Error 401 (Token tidak ada)
-{
-  "status": "error",
-  "data": null,
-  "message": "Token tidak ditemukan"
-}
-</pre>
+**POST /api/pengguna/:id/upload-foto** - Upload foto profil (butuh token)
 
-<p><b>POST /api/alamat</b> - Tambah alamat (butuh token)</p>
-<pre>
-// Request Body
+```bash
+# Header: Authorization: Bearer <token>
+# Form-data: foto (file gambar)
+```
+
+**POST /api/alamat** - Tambah alamat (butuh token)
+
+```bash
+# Request Body
 {
   "id_pengguna": 1,
   "nama_penerima": "Budi Santoso",
@@ -177,67 +278,160 @@ npm run dev
   "utama": true
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": { "id_alamat": 1, ... },
   "message": "Alamat berhasil ditambahkan"
 }
-</pre>
+```
 
-<p><b>PUT /api/alamat/:id</b> - Edit alamat (butuh token)</p>
-<p><b>DELETE /api/alamat/:id</b> - Hapus alamat (butuh token)</p>
-<p><b>GET /api/alamat/pengguna/:id_pengguna</b> - Lihat semua alamat (butuh token)</p>
+**GET /api/alamat/pengguna/:id_pengguna** - Lihat semua alamat (butuh token)
 
-<hr>
+**GET /api/alamat/:id** - Detail alamat (butuh token)
 
-<h3>Produk</h3>
+**PUT /api/alamat/:id** - Edit alamat (butuh token)
 
-<p><b>GET /api/produk</b> - Lihat semua produk (public)</p>
-<pre>
-// Response Sukses (200)
+**DELETE /api/alamat/:id** - Hapus alamat (butuh token)
+
+---
+
+### 🏪 Manajemen Toko (Penjual)
+
+**POST /api/toko** - Upgrade menjadi penjual (butuh token)
+
+```bash
+# Request Body
+{
+  "id_pengguna": 1,
+  "nama_toko": "Toko Saya",
+  "deskripsi": "Toko terpercaya"
+}
+
+# Response Sukses (201)
+{
+  "status": "success",
+  "data": { "id_toko": 1, ... },
+  "message": "Toko berhasil dibuat"
+}
+```
+
+**PUT /api/toko/:id** - Edit profil toko (butuh token)
+
+**GET /api/toko** - Lihat semua toko (public)
+
+**GET /api/toko/:id** - Detail toko (public)
+
+**GET /api/toko/:id_toko/produk** - Lihat produk toko (public)
+
+**GET /api/toko/user/:userId** - Toko by user (butuh token)
+
+**POST /api/toko/:id/upload-logo** - Upload logo toko (butuh token penjual/admin)
+
+**POST /api/toko/:id/upload-banner** - Upload banner toko (butuh token penjual/admin)
+
+---
+
+### 📦 Produk
+
+**GET /api/produk** - Lihat semua produk (public)
+
+```bash
+# Query Params (opsional)
+?page=1&limit=12
+
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
     "data": [
-      { "id_produk": 1, "nama_produk": "MacBook Air M2", "harga": 18500000, ... }
+      {
+        "id_produk": 1,
+        "nama_produk": "MacBook Air M2",
+        "harga": 18500000,
+        "stok": 10,
+        "rata_rating": 4.8,
+        "total_terjual": 50,
+        "nama_toko": "Toko Saya",
+        "nama_kategori": "Elektronik"
+      }
     ],
     "pagination": {
       "current_page": 1,
       "per_page": 12,
       "total_data": 10,
-      "total_page": 1
+      "total_page": 1,
+      "has_next": false,
+      "has_prev": false
     }
   },
   "message": "Products retrieved successfully"
 }
-</pre>
+```
 
-<p><b>GET /api/produk/:id</b> - Detail produk (public)</p>
-<pre>
-// Response Sukses (200)
+**GET /api/produk/:id** - Detail produk (public)
+
+```bash
+# Response Sukses (200)
 {
   "status": "success",
-  "data": { "id_produk": 1, "nama_produk": "MacBook Air M2", ... },
+  "data": {
+    "id_produk": 1,
+    "nama_produk": "MacBook Air M2",
+    "deskripsi": "Laptop tipis dan ringan",
+    "harga": 18500000,
+    "stok": 10,
+    "rata_rating": 4.8,
+    "total_terjual": 50,
+    "nama_toko": "Toko Saya",
+    "nama_kategori": "Elektronik"
+  },
   "message": "Product retrieved successfully"
 }
 
-// Response Error 404 (Produk tidak ditemukan)
+# Response Error 404
 {
   "status": "error",
   "data": null,
   "message": "Produk tidak ditemukan"
 }
-</pre>
+```
 
-<p><b>GET /api/produk/search?q=nama</b> - Cari produk (public)</p>
-<p><b>GET /api/produk/filter?min_harga=&max_harga=&sort=</b> - Filter produk (public)</p>
-<p><b>GET /api/produk/suggestions?q=keyword</b> - Auto-suggest (public)</p>
+**GET /api/produk/search?q=nama** - Cari produk (public)
 
-<p><b>POST /api/produk</b> - Tambah produk (penjual/admin, butuh token)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Request Body
+**GET /api/produk/filter** - Filter produk (public)
+
+```bash
+# Query Params
+?min_harga=100000&max_harga=500000&id_kategori=1&sort=harga_terendah
+
+# Sort options: harga_terendah, harga_tertinggi, terlaris, rating_tertinggi
+```
+
+**GET /api/produk/suggestions?q=keyword** - Auto-suggest pencarian (public)
+
+```bash
+# Response Sukses (200)
+{
+  "status": "success",
+  "data": [
+    { "id_produk": 1, "nama_produk": "MacBook Air M2", "harga": 18500000, "url_gambar": "..." }
+  ],
+  "message": "Suggestions retrieved successfully"
+}
+```
+
+**GET /api/produk/:id/trend** - Tren harga produk (naik/turun) (public)
+
+**GET /api/produk/toko/:id_toko** - Produk by toko (public)
+
+**GET /api/produk/kategori/:id_kategori** - Produk by kategori (public)
+
+**POST /api/produk** - Tambah produk (penjual/admin, butuh token)
+
+```bash
+# Header: Authorization: Bearer <token>
+# Request Body
 {
   "id_toko": 1,
   "id_kategori": 1,
@@ -247,71 +441,106 @@ npm run dev
   "stok": 10
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": { "id_produk": 1, ... },
   "message": "Produk berhasil ditambahkan"
 }
+```
 
-// Response Error 403 (Bukan penjual/admin)
-{
-  "status": "error",
-  "data": null,
-  "message": "Akses ditolak. Hanya untuk: penjual, admin"
-}
-</pre>
+**PUT /api/produk/:id** - Edit produk (penjual/admin, butuh token)
 
-<p><b>PUT /api/produk/:id</b> - Edit produk (penjual/admin, butuh token)</p>
-<p><b>DELETE /api/produk/:id</b> - Hapus produk (penjual/admin, butuh token)</p>
+**DELETE /api/produk/:id** - Hapus produk (penjual/admin, butuh token)
 
-<hr>
+**POST /api/produk/:id/upload-gambar** - Upload gambar produk (penjual/admin, butuh token)
 
-<h3>Wishlist (butuh token)</h3>
+**POST /api/produk/:id/galeri** - Tambah gambar galeri (penjual/admin, butuh token)
 
-<p><b>POST /api/wishlist</b> - Tambah ke wishlist</p>
-<pre>
-// Request Body
+**GET /api/produk/:id/galeri** - Lihat galeri produk (public)
+
+**DELETE /api/produk/galeri/:id_image** - Hapus gambar galeri (penjual/admin, butuh token)
+
+---
+
+### ❤️ Wishlist (butuh token)
+
+**POST /api/wishlist** - Tambah ke wishlist
+
+```bash
+# Request Body
 {
   "id_pengguna": 1,
   "id_produk": 1
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": { "id_wishlist": 1, ... },
   "message": "Produk ditambahkan ke wishlist"
 }
 
-// Response Error 400 (Sudah ada di wishlist)
+# Response Error 400 (Sudah ada)
 {
   "status": "error",
   "data": null,
   "message": "Produk sudah ada di wishlist"
 }
-</pre>
+```
 
-<p><b>DELETE /api/wishlist/:id_pengguna/:id_produk</b> - Hapus dari wishlist</p>
-<p><b>GET /api/wishlist/pengguna/:id_pengguna</b> - Lihat wishlist</p>
+**GET /api/wishlist/pengguna/:id_pengguna** - Lihat wishlist
 
-<hr>
+**GET /api/wishlist/cek/:id_pengguna/:id_produk** - Cek produk di wishlist
 
-<h3>Keranjang (butuh token)</h3>
+**DELETE /api/wishlist/:id_pengguna/:id_produk** - Hapus dari wishlist
 
-<p><b>POST /api/keranjang</b> - Tambah ke keranjang</p>
-<p><b>PUT /api/keranjang/:id</b> - Update jumlah</p>
-<p><b>DELETE /api/keranjang/:id</b> - Hapus item</p>
-<p><b>DELETE /api/keranjang/pengguna/:id_pengguna/clear</b> - Kosongkan keranjang</p>
-<p><b>GET /api/keranjang/pengguna/:id_pengguna</b> - Lihat keranjang</p>
+---
 
-<hr>
+### 🛒 Keranjang (butuh token)
 
-<h3>Pesanan dan Checkout</h3>
+**GET /api/keranjang/pengguna/:id_pengguna** - Lihat keranjang
 
-<p><b>POST /api/pesanan</b> - Checkout (butuh token)</p>
-<pre>
-// Request Body
+```bash
+# Response Sukses (200)
+{
+  "status": "success",
+  "data": {
+    "items": [
+      {
+        "id_keranjang": 1,
+        "id_produk": 1,
+        "jumlah": 2,
+        "nama_produk": "MacBook Air M2",
+        "harga_produk": 18500000,
+        "url_gambar": "...",
+        "stok_produk": 10,
+        "nama_toko": "Toko Saya"
+      }
+    ],
+    "total_items": 1,
+    "total_harga": 37000000
+  },
+  "message": "Cart retrieved successfully"
+}
+```
+
+**POST /api/keranjang** - Tambah ke keranjang
+
+**PUT /api/keranjang/:id** - Update jumlah
+
+**DELETE /api/keranjang/:id** - Hapus item
+
+**DELETE /api/keranjang/pengguna/:id_pengguna/clear** - Kosongkan keranjang
+
+---
+
+### 📝 Pesanan dan Checkout
+
+**POST /api/pesanan** - Checkout (butuh token)
+
+```bash
+# Request Body
 {
   "id_pengguna": 1,
   "id_alamat": 1,
@@ -319,7 +548,7 @@ npm run dev
   "metode_pembayaran": "transfer"
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": {
@@ -327,71 +556,88 @@ npm run dev
     "total_harga": 100000,
     "potongan_diskon": 0,
     "harga_akhir": 100000,
-    "status": "menunggu"
+    "status": "menunggu",
+    "status_pembayaran": "belum_bayar"
   },
   "message": "Pesanan berhasil dibuat"
 }
 
-// Response Error 400 (Keranjang kosong)
+# Response Error 400 (Keranjang kosong)
 {
   "status": "error",
   "data": null,
   "message": "Keranjang kosong"
 }
-</pre>
+```
 
-<p><b>GET /api/pesanan/pengguna/:id_pengguna</b> - Riwayat pesanan (butuh token)</p>
-<p><b>GET /api/pesanan/:id</b> - Detail pesanan (butuh token)</p>
-<p><b>PUT /api/pesanan/:id/status</b> - Update status (penjual/admin, butuh token)</p>
-<p><b>PUT /api/pesanan/:id/pembayaran</b> - Konfirmasi pembayaran (butuh token)</p>
+**GET /api/pesanan/pengguna/:id_pengguna** - Riwayat pesanan (butuh token)
 
-<p><b>Status Pesanan:</b> menunggu → diproses → dikirim → dalam_perjalanan → selesai</p>
+**GET /api/pesanan/:id** - Detail pesanan dengan items (butuh token)
 
-<hr>
+**GET /api/pesanan/toko/:id_toko** - Pesanan masuk toko (penjual/admin, butuh token)
 
-<h3>Voucher</h3>
+**PUT /api/pesanan/:id/status** - Update status (penjual/admin, butuh token)
 
-<p><b>GET /api/voucher</b> - Lihat semua voucher aktif (public)</p>
-<p><b>GET /api/voucher/kode/:kode</b> - Cek voucher (public)</p>
+```bash
+# Request Body
+{
+  "status": "diproses",
+  "nomor_resi": "RESI123456"
+}
 
-<p><b>POST /api/voucher</b> - Tambah voucher (admin, butuh token)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Request Body
+# Status yang tersedia
+# menunggu → diproses → dikirim → dalam_perjalanan → selesai
+```
+
+**PUT /api/pesanan/:id/pembayaran** - Update status pembayaran (butuh token)
+
+---
+
+### 🎫 Voucher
+
+**GET /api/voucher** - Lihat semua voucher aktif (public)
+
+**GET /api/voucher/:id** - Detail voucher (public)
+
+**GET /api/voucher/kode/:kode** - Cek voucher by kode (public)
+
+**GET /api/voucher/admin** - Lihat semua voucher termasuk nonaktif (admin, butuh token)
+
+**POST /api/voucher** - Tambah voucher (admin, butuh token)
+
+```bash
+# Header: Authorization: Bearer <token>
+# Request Body
 {
   "kode": "RAMADAN10",
-  "tipe_diskon": "persen",
+  "tipe_diskon": "persen",   # atau "nominal"
   "nilai_diskon": 10,
   "minimal_belanja": 100000,
+  "maksimal_diskon": 50000,  # opsional
   "berlaku_dari": "2026-04-01",
   "berlaku_sampai": "2026-04-30"
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": { "id_voucher": 1, ... },
   "message": "Voucher berhasil ditambahkan"
 }
+```
 
-// Response Error 403 (Bukan admin)
-{
-  "status": "error",
-  "data": null,
-  "message": "Hanya admin yang bisa menambah voucher"
-}
-</pre>
+**PUT /api/voucher/:id** - Edit voucher (admin, butuh token)
 
-<p><b>PUT /api/voucher/:id</b> - Edit voucher (admin, butuh token)</p>
-<p><b>DELETE /api/voucher/:id</b> - Hapus voucher (admin, butuh token)</p>
+**DELETE /api/voucher/:id** - Hapus voucher (admin, butuh token)
 
-<hr>
+---
 
-<h3>Review dan Rating</h3>
+### ⭐ Review dan Rating
 
-<p><b>POST /api/ulasan</b> - Tambah review (butuh token)</p>
-<pre>
-// Request Body
+**POST /api/ulasan** - Tambah review (butuh token)
+
+```bash
+# Request Body
 {
   "id_pengguna": 1,
   "id_produk": 1,
@@ -400,88 +646,67 @@ npm run dev
   "komentar": "Produk bagus!"
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": { "id_ulasan": 1, ... },
   "message": "Ulasan berhasil ditambahkan"
 }
 
-// Response Error 400 (Rating sudah diberikan)
+# Response Error 400 (Sudah review)
 {
   "status": "error",
   "data": null,
   "message": "Anda sudah memberikan ulasan untuk produk ini di pesanan ini"
 }
-</pre>
+```
 
-<p><b>GET /api/ulasan/produk/:id_produk</b> - Lihat review produk (public)</p>
-<p><b>DELETE /api/ulasan/:id</b> - Hapus review (butuh token)</p>
+**GET /api/ulasan/produk/:id_produk** - Lihat review produk (public)
 
-<hr>
+**DELETE /api/ulasan/:id** - Hapus review (butuh token, hanya pemilik/admin)
 
-<h3>Trust Score</h3>
+---
 
-<p><b>GET /api/trust-score/produk/:id_produk</b> - Lihat trust score (public)</p>
-<pre>
-// Response Sukses (200)
+### ✅ Trust Score
+
+**GET /api/trust-score/produk/:id_produk** - Lihat trust score (public)
+
+```bash
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
     "id_produk": 1,
     "trust_score": 85,
-    "level": "Terpercaya",
-    "badge": "✅"
+    "level": "Sangat Terpercaya",
+    "badge": "🏆",
+    "detail": {
+      "rating": 4.8,
+      "rating_score": 96,
+      "total_terjual": 50,
+      "terjual_score": 50,
+      "konsistensi_review": 90,
+      "kecepatan_kirim": 85
+    }
   },
   "message": "Trust score retrieved successfully"
 }
 
-// Response Error 404
-{
-  "status": "error",
-  "data": null,
-  "message": "Produk tidak ditemukan"
-}
-</pre>
+# Level: Sangat Terpercaya (80+), Terpercaya (60-79), Cukup Terpercaya (40-59)
+```
 
-<p><b>GET /api/trust-score/semua</b> - Semua trust score (public)</p>
+**GET /api/trust-score/semua** - Semua trust score (public)
 
-<hr>
+---
 
-<h3>Trend Produk</h3>
+### 💰 Rekomendasi Harga (Penjual)
 
-<p><b>GET /api/produk/:id/trend</b> - Lihat tren harga produk (naik/turun) (public)</p>
-<pre>
-// Response Sukses (200)
-{
-  "status": "success",
-  "data": {
-    "status": "naik",
-    "arrow": "📈",
-    "persentase": 15,
-    "harga_sekarang": 18500000,
-    "harga_periode_lalu": 16000000,
-    "periode": "7 hari yang lalu"
-  },
-  "message": "Trend produk retrieved successfully"
-}
+**GET /api/rekomendasi/harga/:id_produk** - Rekomendasi harga optimal (butuh token penjual/admin)
 
-// Response Error 404 (Produk tidak ditemukan)
-{
-  "status": "error",
-  "data": null,
-  "message": "Produk tidak ditemukan"
-}
-</pre>
+```bash
+# Header: Authorization: Bearer <token>
 
-<hr>
-
-<h3>Rekomendasi Harga (Penjual)</h3>
-
-<p><b>GET /api/rekomendasi/harga/:id_produk</b> - Rekomendasi harga optimal untuk penjual (butuh token penjual/admin)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Response Sukses (200)
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
@@ -489,137 +714,105 @@ npm run dev
     "nama_produk": "MacBook Air M2",
     "harga_saat_ini": 18500000,
     "harga_optimal": 17000000,
+    "statistik_penjualan": {
+      "total_terjual": 50,
+      "rata_rata_harga": 17500000,
+      "harga_terendah": 16000000,
+      "harga_tertinggi": 19000000,
+      "persentil_25": 16800000,
+      "persentil_75": 18200000
+    },
+    "stok": 10,
     "strategi": "Harga Kompetitif",
+    "pertimbangan": "Harga Anda cukup kompetitif...",
     "rekomendasi": "Rp17.000.000"
   },
   "message": "Rekomendasi harga retrieved successfully"
 }
+```
 
-// Response Error 403 (Bukan penjual/admin)
-{
-  "status": "error",
-  "data": null,
-  "message": "Akses ditolak. Hanya untuk: penjual, admin"
-}
-</pre>
+---
 
-<hr>
+### 📊 Simulasi Antrian Order (Admin)
 
-<h3>Simulasi Antrian Order (Admin)</h3>
+**GET /api/simulasi/preview** - Preview data historis (butuh token admin)
 
-<p><b>GET /api/simulasi/preview</b> - Preview data historis sebelum simulasi (butuh token admin)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Response Sukses (200)
-{
-  "status": "success",
-  "data": {
-    "total_data_pesanan": 150,
-    "rata_rata_order_per_jam": 25.5,
-    "rata_rata_waktu_pembayaran_menit": 2.3,
-    "rata_rata_waktu_konfirmasi_seller_menit": 4.8,
-    "rata_rata_waktu_packing_menit": 3.2,
-    "jumlah_seller_aktif": 8
-  },
-  "message": "Data historis dari database"
-}
-</pre>
+**POST /api/simulasi/real-data** - Simulasi dengan data asli (butuh token admin)
 
-<p><b>POST /api/simulasi/real-data</b> - Simulasi antrian order dengan data asli (butuh token admin)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Request Body (opsional)
+```bash
+# Request Body (opsional)
 {
   "simulation_minutes": 480
 }
 
-// Response Sukses (200)
-{
-  "status": "success",
-  "data": {
-    "ringkasan": {
-      "total_order_selesai": 342,
-      "durasi_simulasi_menit": 480,
-      "throughput_per_jam": 43,
-      "rata_rata_waktu_tunggu_menit": 12.5,
-      "rata_rata_panjang_antrian": 8.2,
-      "utilasi_seller": 78,
-      "titik_hambat": "Konfirmasi Penjual"
-    },
-    "analisis": {
-      "status_utilasi": "Seller bekerja sangat keras (>80%). Pertimbangkan untuk menambah jumlah seller.",
-      "status_antrian": "Antrian cukup panjang (rata-rata 8.2 order).",
-      "rekomendasi": "Konfirmasi penjual adalah tahap paling lambat. Tambah jumlah seller aktif."
-    }
-  },
-  "message": "Simulasi antrian order selesai"
-}
-</pre>
-
-<p><b>POST /api/simulasi/manual</b> - Simulasi antrian order dengan parameter manual (what-if) (butuh token admin)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Request Body
-{
-  "arrival_rate": 50,
-  "payment_duration": 2,
-  "seller_confirm_duration": 5,
-  "packing_duration": 3,
-  "active_sellers": 10,
-  "simulation_minutes": 480
-}
-
-// Response Sukses (200)
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
     "simulasi": {
-      "total_orders_completed": 380,
-      "throughput_per_hour": 47,
-      "avg_waiting_time_minutes": 8.5,
+      "total_orders_completed": 342,
+      "simulation_minutes": 480,
+      "throughput_per_hour": 43,
+      "avg_waiting_time_minutes": 12.5,
+      "avg_queue_length": 8.2,
+      "seller_utilization": 78,
       "bottleneck": "Konfirmasi Penjual"
     },
-    "parameter_input": {
-      "order_masuk_per_jam": 50,
-      "jumlah_seller": 10,
-      "durasi_simulasi_menit": 480
+    "data_historis": {
+      "total_pesanan_dianalisis": 150,
+      "rata_rata_order_per_jam": 25.5,
+      "rata_rata_waktu_pembayaran_menit": 2.3,
+      "rata_rata_waktu_konfirmasi_seller_menit": 4.8,
+      "rata_rata_waktu_packing_menit": 3.2,
+      "jumlah_seller_aktif": 8
     }
   },
-  "message": "Simulasi dengan parameter manual berhasil"
+  "message": "Simulasi dengan data asli berhasil"
 }
-</pre>
+```
 
-<h3>Notifikasi</h3>
+**POST /api/simulasi/manual** - Simulasi dengan parameter manual (what-if) (butuh token admin)
 
-<p><b>GET /api/notifikasi/pengguna/:id_pengguna</b> - Lihat notifikasi (butuh token)</p>
-<p><b>PUT /api/notifikasi/:id/read</b> - Tandai dibaca (butuh token)</p>
+---
 
-<p><b>POST /api/notifikasi/broadcast</b> - Broadcast notifikasi (admin, butuh token)</p>
-<pre>
-// Header: Authorization: Bearer &lt;token&gt;
-// Request Body
+### 🔔 Notifikasi
+
+**GET /api/notifikasi/pengguna/:id_pengguna** - Lihat semua notifikasi (butuh token)
+
+**GET /api/notifikasi/pengguna/:id_pengguna/unread** - Lihat notifikasi belum dibaca (butuh token)
+
+**PUT /api/notifikasi/:id/read** - Tandai sudah dibaca (butuh token)
+
+**PUT /api/notifikasi/pengguna/:id_pengguna/read-all** - Tandai semua sudah dibaca (butuh token)
+
+**POST /api/notifikasi/broadcast** - Broadcast notifikasi ke semua pengguna (admin, butuh token)
+
+```bash
+# Header: Authorization: Bearer <token>
+# Request Body
 {
   "judul": "Promo Ramadhan",
   "pesan": "Diskon 50% untuk semua produk!",
   "tipe": "promo",
-  "role": "semua"
+  "role": "semua"  # atau "pembeli", "penjual"
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": { "total_recipients": 100 },
   "message": "Broadcast dikirim ke 100 pengguna"
 }
-</pre>
+```
 
-<hr>
+---
 
-<h3>Statistik dan Dashboard</h3>
+### 📈 Statistik dan Dashboard
 
-<p><b>GET /api/statistik/admin?role=admin</b> - Dashboard admin (butuh token admin)</p>
-<pre>
-// Response Sukses (200)
+**GET /api/statistik/admin?role=admin** - Dashboard admin (butuh token admin)
+
+```bash
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
@@ -631,114 +824,160 @@ npm run dev
   },
   "message": "Admin statistics retrieved successfully"
 }
+```
 
-// Response Error 403
+**GET /api/statistik/penjual/:id_toko** - Dashboard penjual (butuh token)
+
+```bash
+# Response Sukses (200)
 {
-  "status": "error",
-  "data": null,
-  "message": "Hanya admin yang bisa melihat statistik"
+  "status": "success",
+  "data": {
+    "total_penjualan": 125000000,
+    "total_produk_terjual": 342,
+    "jumlah_pesanan": 150,
+    "top_5_produk": [
+      { "nama_produk": "MacBook Air M2", "total_terjual": 50 },
+      { "nama_produk": "iPhone 15 Pro", "total_terjual": 30 }
+    ],
+    "penjualan_per_bulan": [
+      { "bulan": "2026-03", "total_penjualan": 45000000 },
+      { "bulan": "2026-04", "total_penjualan": 80000000 }
+    ]
+  },
+  "message": "Seller statistics retrieved successfully"
 }
-</pre>
+```
 
-<p><b>GET /api/statistik/penjual/:id_toko</b> - Dashboard penjual (butuh token)</p>
+---
 
-<hr>
+### 📄 Laporan (Report System)
 
-<h3>Manajemen Toko (Penjual)</h3>
+**POST /api/laporan** - Buat laporan (butuh token)
 
-<p><b>POST /api/toko</b> - Upgrade jadi penjual (butuh token)</p>
-<p><b>PUT /api/toko/:id</b> - Edit profil toko (butuh token)</p>
-<p><b>GET /api/toko/:id/produk</b> - Lihat produk toko (public)</p>
-
-<hr>
-
-<h3>Laporan (Report System)</h3>
-
-<p><b>POST /api/laporan</b> - Buat laporan (butuh token)</p>
-<pre>
-// Request Body
+```bash
+# Request Body
 {
   "id_pelapor": 1,
-  "tipe_target": "produk",
+  "tipe_target": "produk",  # atau "penjual"
   "id_target": 1,
   "alasan": "Produk tidak sesuai deskripsi"
 }
 
-// Response Sukses (201)
+# Response Sukses (201)
 {
   "status": "success",
   "data": { "id_laporan": 1, ... },
   "message": "Laporan berhasil dibuat"
 }
-</pre>
+```
 
-<p><b>GET /api/laporan?role=admin</b> - Lihat semua laporan (admin, butuh token)</p>
-<p><b>PUT /api/laporan/:id/status</b> - Validasi laporan (admin, butuh token)</p>
+**GET /api/laporan/pelapor/:id_pelapor** - Lihat laporan sendiri (butuh token)
 
-<hr>
+**GET /api/laporan?role=admin** - Lihat semua laporan (admin, butuh token)
 
-<h3>Kategori (Admin)</h3>
+**PUT /api/laporan/:id/status** - Validasi laporan (admin, butuh token)
 
-<p><b>GET /api/kategori</b> - Lihat semua kategori (public)</p>
-<p><b>POST /api/kategori?role=admin</b> - Tambah kategori (admin, butuh token)</p>
-<p><b>PUT /api/kategori/:id?role=admin</b> - Edit kategori (admin, butuh token)</p>
-<p><b>DELETE /api/kategori/:id?role=admin</b> - Hapus kategori (admin, butuh token)</p>
+```bash
+# Request Body
+{
+  "status": "selesai",  # menunggu, diproses, selesai
+  "catatan_admin": "Produk telah dinonaktifkan"
+}
+```
 
-<hr>
+---
 
-<h3>Transaksi (Admin)</h3>
+### 🏷️ Kategori (Admin)
 
-<p><b>GET /api/transaksi?role=admin</b> - Lihat semua transaksi (admin, butuh token)</p>
-<p><b>GET /api/transaksi/:id</b> - Detail transaksi (butuh token)</p>
+**GET /api/kategori** - Lihat semua kategori (public)
 
-<hr>
+**GET /api/kategori/:id** - Detail kategori (public)
 
-<h3>Multi-Admin (Super Admin)</h3>
+**POST /api/kategori?role=admin** - Tambah kategori (admin, butuh token)
 
-<p><b>GET /api/admin</b> - Lihat semua admin (admin, butuh token)</p>
-<p><b>POST /api/admin</b> - Tambah admin (admin, butuh token)</p>
-<p><b>PUT /api/admin/:id</b> - Edit admin (admin, butuh token)</p>
-<p><b>DELETE /api/admin/:id</b> - Hapus admin (admin, butuh token)</p>
+**PUT /api/kategori/:id?role=admin** - Edit kategori (admin, butuh token)
 
-<hr>
+**DELETE /api/kategori/:id?role=admin** - Hapus kategori (admin, butuh token)
 
-<h3>System Settings (Super Admin)</h3>
+---
 
-<p><b>GET /api/settings</b> - Lihat semua pengaturan (public)</p>
-<p><b>GET /api/settings/:key</b> - Lihat by key (public)</p>
-<p><b>POST /api/settings</b> - Tambah setting (admin, butuh token)</p>
-<p><b>PUT /api/settings/:key</b> - Update setting (admin, butuh token)</p>
-<p><b>DELETE /api/settings/:key</b> - Hapus setting (admin, butuh token)</p>
+### 💳 Transaksi
 
-<hr>
+**GET /api/transaksi?role=admin** - Lihat semua transaksi (admin, butuh token)
 
-<h3>Blog (Admin)</h3>
+**GET /api/transaksi/pengguna/:id_pengguna** - Lihat transaksi sendiri (butuh token)
 
-<p><b>GET /api/blogs</b> - Lihat semua artikel (public)</p>
-<p><b>GET /api/blogs/:id</b> - Detail artikel (public)</p>
-<p><b>POST /api/blogs</b> - Tambah artikel (admin, butuh token)</p>
-<p><b>PUT /api/blogs/:id</b> - Edit artikel (admin, butuh token)</p>
-<p><b>DELETE /api/blogs/:id</b> - Hapus artikel (admin, butuh token)</p>
+**GET /api/transaksi/:id** - Detail transaksi (butuh token, hanya pemilik/admin)
 
-<hr>
+---
 
-<h3>Search History (Pembeli)</h3>
+### 👥 Multi-Admin (Super Admin)
 
-<p><b>GET /api/search-history/pengguna/:id_pengguna</b> - Lihat riwayat (butuh token)</p>
-<p><b>POST /api/search-history</b> - Simpan keyword (butuh token)</p>
-<p><b>DELETE /api/search-history/:id</b> - Hapus satu (butuh token)</p>
-<p><b>DELETE /api/search-history/pengguna/:id_pengguna/clear</b> - Hapus semua (butuh token)</p>
+**GET /api/admin** - Lihat semua admin (admin, butuh token)
 
-<hr>
+**POST /api/admin** - Tambah admin (admin, butuh token)
 
-<h3>Loyalty Points & Membership</h3>
+**PUT /api/admin/:id** - Edit admin (admin, butuh token)
 
-<p><b>GET /api/loyalty/points/pengguna/:id_pengguna</b> - Total poin (butuh token)</p>
-<p><b>GET /api/loyalty/history/pengguna/:id_pengguna</b> - Riwayat poin (butuh token)</p>
-<p><b>GET /api/loyalty/membership/pengguna/:id_pengguna</b> - Level membership (butuh token)</p>
+**DELETE /api/admin/:id** - Hapus admin (admin, butuh token)
 
-<pre>
-// Response Sukses (200)
+---
+
+### ⚙️ System Settings (Super Admin)
+
+**GET /api/settings** - Lihat semua pengaturan (public)
+
+**GET /api/settings/:key** - Lihat by key (public)
+
+**POST /api/settings** - Tambah setting (admin, butuh token)
+
+**PUT /api/settings/:key** - Update setting (admin, butuh token)
+
+**DELETE /api/settings/:key** - Hapus setting (admin, butuh token)
+
+**POST /api/settings/upload-logo** - Upload logo perusahaan (admin, butuh token)
+
+---
+
+### 📝 Blog (Admin)
+
+**GET /api/blogs** - Lihat semua artikel dengan pagination (public)
+
+**GET /api/blogs/:id** - Detail artikel (public)
+
+**POST /api/blogs** - Tambah artikel (admin, butuh token)
+
+**PUT /api/blogs/:id** - Edit artikel (admin, butuh token)
+
+**DELETE /api/blogs/:id** - Hapus artikel (admin, butuh token)
+
+**POST /api/blogs/:id/upload-foto** - Upload foto artikel (admin, butuh token)
+
+---
+
+### 🔍 Search History (Pembeli)
+
+**GET /api/search-history/pengguna/:id_pengguna** - Lihat riwayat (butuh token)
+
+**POST /api/search-history** - Simpan keyword pencarian (butuh token)
+
+**DELETE /api/search-history/:id** - Hapus satu (butuh token)
+
+**DELETE /api/search-history/pengguna/:id_pengguna/clear** - Hapus semua (butuh token)
+
+---
+
+### 💎 Loyalty Points & Membership
+
+**GET /api/loyalty/points/pengguna/:id_pengguna** - Total poin (butuh token)
+
+**GET /api/loyalty/history/pengguna/:id_pengguna** - Riwayat poin (butuh token)
+
+**GET /api/loyalty/membership/pengguna/:id_pengguna** - Level membership (butuh token)
+
+```bash
+# Response Sukses (200)
 {
   "status": "success",
   "data": {
@@ -746,55 +985,199 @@ npm run dev
     "total_points": 750,
     "membership_level": "Gold",
     "badge": "🥇",
+    "min_points_for_current_level": 500,
     "points_to_next_level": 250,
     "next_level_name": "Platinum"
   },
   "message": "Membership level retrieved"
 }
-</pre>
+```
 
-<p><b>POST /api/loyalty/points</b> - Tambah poin (butuh token)</p>
-<p><b>PUT /api/loyalty/points/redeem</b> - Tukar poin (butuh token)</p>
+**POST /api/loyalty/points** - Tambah poin (butuh token)
 
-<p><b>Level Membership:</b></p>
-<ul>
-  <li>Regular (0–499 poin) 🟢</li>
-  <li>Gold (500–999 poin) 🥇</li>
-  <li>Platinum (1000+ poin) 💎</li>
-</ul>
+**PUT /api/loyalty/points/redeem** - Tukar poin (butuh token)
 
-<hr>
+**Level Membership:**
+| Level | Points | Badge |
+|-------|--------|-------|
+| Regular | 0 - 499 | 🟢 |
+| Gold | 500 - 999 | 🥇 |
+| Platinum | 1000+ | 💎 |
 
-<h2>Tech Stack</h2>
+---
 
-<ul>
-  <li>Node.js</li>
-  <li>Express.js</li>
-  <li>PostgreSQL</li>
-  <li>pg (PostgreSQL driver)</li>
-  <li>dotenv</li>
-  <li>cors</li>
-  <li>bcrypt (hash password)</li>
-  <li>jsonwebtoken (JWT)</li>
-</ul>
+### 💬 Chat (Real-time dengan Socket.io)
 
-<hr>
+**GET /api/chat/rooms/:user_id** - Daftar chat rooms (butuh token)
 
-<h2>Role dan Akses</h2>
+**GET /api/chat/history/:user_id/:other_id** - Riwayat chat dengan pagination (butuh token)
 
-<ul>
-  <li><b>Admin:</b> Semua endpoint (kategori, voucher, transaksi, laporan, broadcast, blog, settings, multi-admin)</li>
-  <li><b>Penjual:</b> Kelola produk, lihat pesanan masuk, update status</li>
-  <li><b>Pembeli:</b> Belanja, wishlist, keranjang, pesanan, review, loyalty points</li>
-</ul>
+**GET /api/chat/unread/:user_id** - Jumlah pesan belum dibaca (butuh token)
 
-<hr>
+**DELETE /api/chat/:id** - Hapus pesan (butuh token)
 
-<h2>Catatan</h2>
+**Aturan Chat:**
 
-<ul>
-  <li>Gunakan header untuk endpoint yang butuh autentikasi: <code>Authorization: Bearer &lt;token&gt;</code></li>
-  <li>Password di-hash dengan bcrypt sebelum disimpan ke database</li>
-  <li>Token JWT berlaku 7 hari</li>
-  <li>Semua response mengikuti format standar: <code>{ status, data, message }</code></li>
-</ul>
+- Admin bisa chat dengan siapa saja
+- Pembeli bisa langsung chat dengan penjual (untuk tanya sebelum beli)
+- Penjual bisa chat dengan pembeli yang sudah pernah transaksi ATAU sudah pernah chat sebelumnya
+- Penjual dengan penjual lain TIDAK BISA
+- Pembeli dengan pembeli lain TIDAK BISA
+
+**Socket.io Events:**
+
+```javascript
+// Client connect
+socket.on("user-online", { user_id, role, name });
+
+// Send message
+socket.emit("send-message", {
+  sender_id,
+  sender_role,
+  receiver_id,
+  message,
+  sender_name,
+});
+
+// Receive message
+socket.on("new-message", (data) => {});
+
+// Typing indicator
+socket.emit("typing", { receiver_id, is_typing: true / false });
+
+// Mark as read
+socket.emit("mark-read", { message_ids, sender_id });
+```
+
+---
+
+### 📦 Export Laporan (Admin)
+
+**GET /api/export/penjualan/excel** - Export laporan penjualan ke Excel (admin, butuh token)
+
+```bash
+# Query Params
+?start_date=2026-04-01&end_date=2026-04-30&status=selesai
+```
+
+**GET /api/export/penjualan/pdf** - Export laporan penjualan ke PDF (admin, butuh token)
+
+**GET /api/export/produk-terlaris/excel** - Export produk terlaris ke Excel (admin, butuh token)
+
+---
+
+### 🚚 Ongkir (Biteship Integration)
+
+**POST /api/ongkir/cost** - Cek ongkos kirim (butuh token)
+
+```bash
+# Request Body
+{
+  "origin_postal_code": "10110",
+  "destination_postal_code": "60271",
+  "couriers": "jne",
+  "items": [
+    { "name": "MacBook Air M2", "quantity": 1, "weight": 1500, "price": 18500000 }
+  ]
+}
+```
+
+**GET /api/ongkir/tracking/:tracking_id** - Cek status resi (butuh token)
+
+**GET /api/ongkir/search-area?q=jakarta** - Cari area/kota (butuh token)
+
+---
+
+### 💳 Payment (Komerce Integration)
+
+**GET /api/payment/methods** - Daftar metode pembayaran (butuh token)
+
+**POST /api/payment/create** - Buat transaksi pembayaran (butuh token)
+
+```bash
+# Request Body (Virtual Account)
+{
+  "order_id": "ORD-001",
+  "payment_type": "bank_transfer",
+  "channel_code": "BCA",
+  "amount": 100000,
+  "customer_name": "Budi Santoso",
+  "customer_email": "budi@email.com",
+  "customer_phone": "08123456789",
+  "items": [
+    { "name": "Produk A", "quantity": 1, "price": 100000 }
+  ]
+}
+
+# Request Body (QRIS)
+{
+  "order_id": "ORD-001",
+  "payment_type": "qris",
+  "amount": 100000,
+  "customer_name": "Budi Santoso",
+  "customer_email": "budi@email.com",
+  "customer_phone": "08123456789",
+  "items": [...]
+}
+```
+
+**GET /api/payment/status/:payment_id** - Cek status pembayaran (butuh token)
+
+**POST /api/payment/cancel/:payment_id** - Batalkan pembayaran (butuh token)
+
+**POST /api/payment/webhook** - Webhook callback dari payment gateway (public)
+
+---
+
+## 🛠️ Tech Stack
+
+- **Runtime:** Node.js
+- **Framework:** Express.js
+- **Database:** PostgreSQL
+- **ORM/Driver:** pg (node-postgres)
+- **Authentication:** JWT, Passport.js (Google OAuth)
+- **File Upload:** Multer
+- **Real-time:** Socket.io
+- **External APIs:** Biteship (ongkir), Komerce (payment)
+- **Environment:** dotenv
+
+---
+
+## 👥 Role dan Akses
+
+| Role        | Akses                                                                                                            |
+| ----------- | ---------------------------------------------------------------------------------------------------------------- |
+| **Admin**   | Semua endpoint (kategori, voucher, transaksi, laporan, broadcast, blog, settings, multi-admin, simulasi, export) |
+| **Penjual** | Kelola produk, lihat pesanan masuk, update status, rekomendasi harga, statistik toko                             |
+| **Pembeli** | Belanja, wishlist, keranjang, pesanan, review, loyalty points, chat                                              |
+
+---
+
+## 📝 Catatan
+
+- **Autentikasi:** Gunakan header `Authorization: Bearer <token>` untuk endpoint yang butuh autentikasi
+- **Password:** Di-hash dengan bcrypt sebelum disimpan ke database
+- **JWT:** Token berlaku 7 hari
+- **Response:** Semua response mengikuti format standar `{ status, data, message }`
+- **CORS:** Dikonfigurasi untuk menerima request dari frontend (`FRONTEND_URL` di .env)
+- **Upload:** File gambar disimpan di folder `uploads/` dengan maksimal 5MB per file
+- **Database:** Gunakan file `BelanjaIn1.sql` untuk import struktur dan data awal
+
+---
+
+## 📁 Struktur Folder
+
+```
+belanjain-backend/
+├── config/           # Konfigurasi (passport.js)
+├── controllers/      # Business logic
+├── cron/             # Scheduled jobs
+├── db/               # Database connection
+├── middleware/       # Auth, upload, response formatter
+├── routes/           # API route definitions
+├── services/         # External API integrations
+├── uploads/          # Uploaded files
+├── .env              # Environment variables
+├── package.json      # Dependencies
+└── server.js         # Main entry point
+```

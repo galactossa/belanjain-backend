@@ -8,7 +8,7 @@ class LayananBiteship {
       process.env.BITESHIP_BASE_URL || "https://api.biteship.com/v1";
   }
 
-  // Header untuk request ke Biteship (DIPERBAIKI)
+  // Header untuk request ke Biteship
   dapatkanHeader() {
     return {
       Authorization: `Bearer ${this.apiKey}`,
@@ -76,7 +76,7 @@ class LayananBiteship {
     }
   }
 
-  // ========== CEK STATUS RESI (TRACKING) ==========
+  // CEK STATUS RESI (TRACKING)
   async dapatkanTracking(trackingId) {
     try {
       const response = await axios.get(
@@ -93,7 +93,7 @@ class LayananBiteship {
     }
   }
 
-  // ========== CARI AREA ==========
+  // CARI AREA
   async cariArea(input) {
     try {
       const response = await axios.get(

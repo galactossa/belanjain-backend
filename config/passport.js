@@ -21,9 +21,7 @@ passport.deserializeUser(async (id, done) => {
   }
 });
 
-// ============================================
-// GOOGLE OAUTH - HANYA JALAN JIKA CREDENTIALS ADA
-// ============================================
+// GOOGLE OAUTH
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -42,7 +40,8 @@ if (
         clientID: GOOGLE_CLIENT_ID,
         clientSecret: GOOGLE_CLIENT_SECRET,
         callbackURL:
-          process.env.GOOGLE_CALLBACK_URL || "/api/auth/google/callback",
+          process.env.GOOGLE_CALLBACK_URL ||
+          "http://localhost:3000/api/auth/google/callback",
         scope: ["profile", "email"],
       },
       async (accessToken, refreshToken, profile, done) => {
@@ -74,7 +73,14 @@ if (
             return done(null, user);
           }
 
-          const nama = profile.displayName || email.split("@")[0];
+          // 🔥 PERBAIKAN: Ambil nama dengan fallback yang lebih baik
+          let nama = profile.displayName;
+          if (!nama || nama.trim() === "") {
+            // Jika tidak ada displayName, gunakan bagian depan email dengan huruf kapital
+            const emailName = email.split("@")[0];
+            nama = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+          }
+
           const foto =
             profile.photos && profile.photos[0]
               ? profile.photos[0].value

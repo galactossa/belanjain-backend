@@ -6,7 +6,12 @@ const JWT_SECRET = process.env.JWT_SECRET || "rahasia_default_ganti_nanti";
 
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user.id_pengguna, email: user.email, role: user.role },
+    {
+      id: user.id_pengguna,
+      id_pengguna: user.id_pengguna,
+      email: user.email,
+      role: user.role,
+    },
     JWT_SECRET,
     { expiresIn: "7d" },
   );
@@ -15,17 +20,26 @@ const generateToken = (user) => {
 const googleCallback = async (req, res) => {
   try {
     if (!req.user) {
-      return res.redirect(`http://localhost:5173/login?error=auth_failed`);
+      return res.redirect(
+        `${process.env.FRONTEND_URL || "http://localhost:5173"}?error=auth_failed`,
+      );
     }
 
     const user = req.user;
     const token = generateToken(user);
 
-    const redirectUrl = `http://localhost:5173/auth/google/callback?token=${token}`;
+    // Kirim token sebagai query parameter ke frontend
+    const redirectUrl = `${
+      process.env.FRONTEND_URL || "http://localhost:5173"
+    }?token=${token}`;
+
+    console.log("✅ Google OAuth Success, redirecting to:", redirectUrl);
     res.redirect(redirectUrl);
   } catch (err) {
-    console.error(err);
-    res.redirect(`http://localhost:5173/login?error=server_error`);
+    console.error("Google OAuth Callback Error:", err);
+    res.redirect(
+      `${process.env.FRONTEND_URL || "http://localhost:5173"}?error=server_error`,
+    );
   }
 };
 

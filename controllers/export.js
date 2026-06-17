@@ -24,9 +24,7 @@ const formatRupiah = (angka) => {
   return "Rp" + parseInt(angka).toLocaleString("id-ID");
 };
 
-// =====================================================
 // 1. EXPORT LAPORAN PENJUALAN (EXCEL)
-// =====================================================
 const exportPenjualanExcel = async (req, res) => {
   const { start_date, end_date, seller_id, status } = req.query;
 
@@ -197,9 +195,7 @@ const exportPenjualanExcel = async (req, res) => {
   }
 };
 
-// =====================================================
-// 2. EXPORT LAPORAN PENJUALAN (PDF) - Menggunakan PDFKit
-// =====================================================
+// 2. EXPORT LAPORAN PENJUALAN (PDF)
 const exportPenjualanPdf = async (req, res) => {
   const { start_date, end_date, seller_id, status } = req.query;
 
@@ -269,7 +265,7 @@ const exportPenjualanPdf = async (req, res) => {
     );
     const rataRataPesanan = totalPendapatan / totalPesanan;
 
-    // Buat PDF dengan PDFKit
+    // Buat PDF
     const doc = new PDFDocument({
       margin: 50,
       size: "A4",
@@ -428,9 +424,7 @@ const exportPenjualanPdf = async (req, res) => {
   }
 };
 
-// =====================================================
 // 3. EXPORT LAPORAN PER PRODUK (EXCEL)
-// =====================================================
 const exportProdukTerlarisExcel = async (req, res) => {
   const { limit = 50 } = req.query;
 

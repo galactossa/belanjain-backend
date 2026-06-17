@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const blogController = require("../controllers/blog");
 const { verifyToken, checkRole } = require("../middleware/auth");
-const upload = require("../middleware/upload");
+const { upload } = require("../middleware/upload");
 
 // Public (bisa lihat artikel)
 router.get("/", blogController.getAllBlogs);

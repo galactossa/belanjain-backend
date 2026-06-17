@@ -19,7 +19,6 @@ const checkOngkir = async (req, res) => {
   }
 
   try {
-    // Format payload yang benar untuk Biteship API
     const payload = {
       origin_postal_code: origin_postal_code,
       destination_postal_code: destination_postal_code,

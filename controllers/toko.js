@@ -48,7 +48,27 @@ const getTokoById = async (req, res) => {
   }
 };
 
-// POST buat toko (upgrade dari pembeli ke penjual)
+// GET toko by user ID
+const getTokoByUser = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query(
+      "SELECT * FROM toko WHERE id_pengguna = $1",
+      [userId],
+    );
+    if (result.rows.length === 0) {
+      return notFound(res, "Toko tidak ditemukan");
+    }
+    return success(res, result.rows[0], "Store retrieved successfully");
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// ================= 🔥 PERBAIKAN: POST buat toko =================
+// controllers/toko.js - createToko
+
 const createToko = async (req, res) => {
   const { id_pengguna, nama_toko, deskripsi } = req.body;
 
@@ -57,6 +77,7 @@ const createToko = async (req, res) => {
   }
 
   try {
+    // Cek apakah user sudah punya toko
     const cekToko = await pool.query(
       "SELECT * FROM toko WHERE id_pengguna = $1",
       [id_pengguna],
@@ -65,15 +86,29 @@ const createToko = async (req, res) => {
       return badRequest(res, "Pengguna sudah memiliki toko");
     }
 
-    await pool.query("UPDATE pengguna SET role = $1 WHERE id_pengguna = $2", [
-      "penjual",
-      id_pengguna,
-    ]);
+    // ================= 🔥 UPDATE ROLE USER MENJADI PENJUAL =================
+    await pool.query(
+      "UPDATE pengguna SET role = 'penjual', updated_at = CURRENT_TIMESTAMP WHERE id_pengguna = $1",
+      [id_pengguna],
+    );
 
+    // Buat toko
     const result = await pool.query(
       "INSERT INTO toko (id_pengguna, nama_toko, deskripsi) VALUES ($1, $2, $3) RETURNING *",
       [id_pengguna, nama_toko, deskripsi],
     );
+
+    // Kirim notifikasi
+    await pool.query(
+      "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
+      [
+        id_pengguna,
+        "Toko Berhasil Dibuka! 🎉",
+        `Selamat! Toko "${nama_toko}" telah berhasil aktif. Mulai jualan sekarang!`,
+        "toko",
+      ],
+    );
+
     return created(res, result.rows[0], "Toko berhasil dibuat");
   } catch (err) {
     console.error(err);
@@ -172,6 +207,7 @@ const uploadBannerToko = async (req, res) => {
 module.exports = {
   getAllToko,
   getTokoById,
+  getTokoByUser,
   createToko,
   updateToko,
   getProdukByToko,

@@ -5,6 +5,7 @@ const {
   created,
   notFound,
   badRequest,
+  forbidden,
 } = require("../middleware/responseFormatter");
 
 // GET ulasan by produk
@@ -105,22 +106,42 @@ const createUlasan = async (req, res) => {
 // DELETE ulasan
 const deleteUlasan = async (req, res) => {
   const { id } = req.params;
+  const userId = req.user?.id;
+  const userRole = req.user?.role;
+
   try {
+    // Cek dulu siapa pemilik ulasan
+    const cekUlasan = await pool.query(
+      "SELECT id_pengguna, id_produk FROM ulasan WHERE id_ulasan = $1",
+      [id],
+    );
+
+    if (cekUlasan.rows.length === 0) {
+      return notFound(res, "Ulasan tidak ditemukan");
+    }
+
+    if (cekUlasan.rows[0].id_pengguna !== userId && userRole !== "admin") {
+      return forbidden(
+        res,
+        "Anda tidak memiliki akses untuk menghapus ulasan ini",
+      );
+    }
+
+    const id_produk = cekUlasan.rows[0].id_produk;
+
     const result = await pool.query(
       "DELETE FROM ulasan WHERE id_ulasan = $1 RETURNING *",
       [id],
     );
-    if (result.rows.length === 0) {
-      return notFound(res, "Ulasan tidak ditemukan");
-    }
 
+    // Update rata-rata rating produk
     const avgResult = await pool.query(
       "SELECT AVG(rating) as rata_rata FROM ulasan WHERE id_produk = $1",
-      [result.rows[0].id_produk],
+      [id_produk],
     );
     await pool.query(
       "UPDATE produk SET rata_rating = $1 WHERE id_produk = $2",
-      [avgResult.rows[0].rata_rata, result.rows[0].id_produk],
+      [avgResult.rows[0].rata_rata || 0, id_produk],
     );
 
     return success(res, null, "Ulasan dihapus");

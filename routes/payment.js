@@ -3,10 +3,10 @@ const router = express.Router();
 const paymentController = require("../controllers/payment");
 const { verifyToken, checkRole } = require("../middleware/auth");
 
-// ========== PUBLIC WEBHOOK (dari payment gateway) ==========
+// PUBLIC WEBHOOK (dari payment gateway)
 router.post("/webhook", paymentController.paymentWebhook);
 
-// ========== PROTECTED ROUTES (butuh login) ==========
+// PROTECTED ROUTES (butuh login)
 // Get metode pembayaran yang tersedia
 router.get("/methods", verifyToken, paymentController.getPaymentMethods);
 

@@ -62,6 +62,34 @@ const getAllPengguna = async (req, res) => {
   }
 };
 
+// ================= 🔥 GET PROFILE SENDIRI DARI TOKEN =================
+const getMe = async (req, res) => {
+  console.log("🔍 /me called, req.user:", req.user);
+
+  try {
+    const userId = req.user.id || req.user.id_pengguna;
+
+    console.log("🔍 userId:", userId);
+
+    const result = await pool.query(
+      "SELECT id_pengguna, nama, email, role, telepon, url_foto, aktif, created_at FROM pengguna WHERE id_pengguna = $1",
+      [userId],
+    );
+
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "User tidak ditemukan" });
+    }
+
+    console.log("✅ User found:", result.rows[0]);
+    return res.status(200).json({ status: "success", data: result.rows[0] });
+  } catch (err) {
+    console.error("❌ ERROR di /me:", err);
+    return res.status(500).json({ status: "error", message: err.message });
+  }
+};
+
 // GET pengguna by ID
 const getPenggunaById = async (req, res) => {
   const { id } = req.params;
@@ -139,7 +167,12 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: pengguna.id_pengguna, email: pengguna.email, role: pengguna.role },
+      {
+        id: pengguna.id_pengguna,
+        id_pengguna: pengguna.id_pengguna,
+        email: pengguna.email,
+        role: pengguna.role,
+      },
       JWT_SECRET,
       { expiresIn: "7d" },
     );
@@ -249,7 +282,9 @@ const uploadFotoProfil = async (req, res) => {
   }
 
   try {
-    const imageUrl = `/uploads/${req.file.filename}`;
+    // 🔥 Gunakan path yang benar untuk akses dari frontend
+    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
+    const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
 
     const result = await pool.query(
       "UPDATE pengguna SET url_foto = $1, updated_at = CURRENT_TIMESTAMP WHERE id_pengguna = $2 RETURNING id_pengguna, nama, email, url_foto",
@@ -269,6 +304,7 @@ const uploadFotoProfil = async (req, res) => {
 
 module.exports = {
   getAllPengguna,
+  getMe,
   getPenggunaById,
   register,
   login,

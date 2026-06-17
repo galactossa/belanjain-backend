@@ -10,7 +10,6 @@ router.get("/produk/:id_produk", ulasanController.getUlasanByProduk);
 router.post("/", verifyToken, ulasanController.createUlasan);
 
 // Hapus ulasan (hanya pemilik ulasan atau admin)
-// Catatan: Untuk keamanan lebih, sebaiknya tambahkan pengecekan pemilik di controller
 router.delete("/:id", verifyToken, ulasanController.deleteUlasan);
 
 module.exports = router;

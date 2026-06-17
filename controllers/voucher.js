@@ -27,8 +27,9 @@ const getAllVoucher = async (req, res) => {
 
 // GET semua voucher termasuk tidak aktif (admin only)
 const getAllVoucherAdmin = async (req, res) => {
-  const { role } = req.query;
-  if (role !== "admin") {
+  const userRole = req.user?.role;
+
+  if (userRole !== "admin") {
     return forbidden(res, "Hanya admin yang bisa melihat semua voucher");
   }
 
@@ -97,9 +98,11 @@ const createVoucher = async (req, res) => {
     berlaku_dari,
     berlaku_sampai,
   } = req.body;
-  const { role } = req.query;
 
-  if (role !== "admin") {
+  // 🔥 Gunakan req.user dari token
+  const userRole = req.user?.role;
+
+  if (userRole !== "admin") {
     return forbidden(res, "Hanya admin yang bisa menambah voucher");
   }
 
@@ -153,9 +156,9 @@ const updateVoucher = async (req, res) => {
     berlaku_sampai,
     aktif,
   } = req.body;
-  const { role } = req.query;
+  const userRole = req.user?.role;
 
-  if (role !== "admin") {
+  if (userRole !== "admin") {
     return forbidden(res, "Hanya admin yang bisa mengupdate voucher");
   }
 
@@ -187,9 +190,9 @@ const updateVoucher = async (req, res) => {
 // DELETE voucher (admin only)
 const deleteVoucher = async (req, res) => {
   const { id } = req.params;
-  const { role } = req.query;
+  const userRole = req.user?.role;
 
-  if (role !== "admin") {
+  if (userRole !== "admin") {
     return forbidden(res, "Hanya admin yang bisa menghapus voucher");
   }
 

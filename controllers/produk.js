@@ -9,30 +9,116 @@ const {
 const fs = require("fs");
 const path = require("path");
 
-// GET semua produk dengan PAGINATION
+// GET semua produk dengan PAGINATION + FILTER LENGKAP + SHOPPING MODE
 const getAllProduk = async (req, res) => {
-  const { page = 1, limit = 12 } = req.query;
+  const {
+    page = 1,
+    limit = 12,
+    id_kategori,
+    q,
+    min_harga,
+    max_harga,
+    brands,
+    min_rating,
+    shopping_mode,
+  } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
-    const totalResult = await pool.query(
-      "SELECT COUNT(*) FROM produk WHERE aktif = true",
-    );
+    let query = `
+      SELECT p.*, t.nama_toko, k.nama_kategori 
+      FROM produk p 
+      JOIN toko t ON p.id_toko = t.id_toko 
+      LEFT JOIN kategori k ON p.id_kategori = k.id_kategori 
+      WHERE p.aktif = true
+    `;
+    let countQuery = "SELECT COUNT(*) FROM produk p WHERE p.aktif = true";
+    const params = [];
+    let paramIndex = 1;
+
+    // Filter kategori
+    if (id_kategori) {
+      query += ` AND p.id_kategori = $${paramIndex}`;
+      countQuery += ` AND p.id_kategori = $${paramIndex}`;
+      params.push(id_kategori);
+      paramIndex++;
+    }
+
+    // Filter search
+    if (q) {
+      query += ` AND p.nama_produk ILIKE $${paramIndex}`;
+      countQuery += ` AND p.nama_produk ILIKE $${paramIndex}`;
+      params.push(`%${q}%`);
+      paramIndex++;
+    }
+
+    // Filter harga
+    if (min_harga) {
+      query += ` AND p.harga >= $${paramIndex}`;
+      countQuery += ` AND p.harga >= $${paramIndex}`;
+      params.push(min_harga);
+      paramIndex++;
+    }
+    if (max_harga) {
+      query += ` AND p.harga <= $${paramIndex}`;
+      countQuery += ` AND p.harga <= $${paramIndex}`;
+      params.push(max_harga);
+      paramIndex++;
+    }
+
+    // Filter brands
+    if (brands) {
+      const brandArray = brands.split(",");
+      const brandConditions = brandArray
+        .map((_, i) => `t.nama_toko ILIKE $${paramIndex + i}`)
+        .join(" OR ");
+      query += ` AND (${brandConditions})`;
+      countQuery += ` AND (${brandConditions.replace(/t\.nama_toko/g, "t.nama_toko")})`;
+      brandArray.forEach((b) => {
+        params.push(`%${b.trim()}%`);
+        paramIndex++;
+      });
+    }
+
+    // Filter rating
+    if (min_rating) {
+      query += ` AND p.rata_rating >= $${paramIndex}`;
+      countQuery += ` AND p.rata_rating >= $${paramIndex}`;
+      params.push(min_rating);
+      paramIndex++;
+    }
+
+    // 🔥 SHOPPING MODE - Sorting berdasarkan mode
+    if (shopping_mode) {
+      switch (shopping_mode) {
+        case "HEMAT":
+          // Produk dengan harga termurah
+          query += ` ORDER BY p.harga ASC, p.total_terjual DESC`;
+          break;
+        case "PREMIUM":
+          // Produk dengan rating tertinggi, harga premium
+          query += ` ORDER BY p.rata_rating DESC, p.harga DESC`;
+          break;
+        case "FLASH":
+          // Produk dengan stok terbatas (untuk flash sale)
+          query += ` ORDER BY p.stok ASC, p.total_terjual DESC`;
+          break;
+        default:
+          query += ` ORDER BY p.id_produk`;
+      }
+    } else {
+      query += ` ORDER BY p.id_produk`;
+    }
+
+    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    params.push(parseInt(limit), offset);
+
+    const countParams = params.slice(0, params.length - 2);
+    const totalResult = await pool.query(countQuery, countParams);
     const totalData = parseInt(totalResult.rows[0].count);
     const totalPage = Math.ceil(totalData / parseInt(limit));
 
-    const result = await pool.query(
-      `
-            SELECT p.*, t.nama_toko, k.nama_kategori 
-            FROM produk p 
-            JOIN toko t ON p.id_toko = t.id_toko 
-            LEFT JOIN kategori k ON p.id_kategori = k.id_kategori 
-            WHERE p.aktif = true 
-            ORDER BY p.id_produk 
-            LIMIT $1 OFFSET $2
-        `,
-      [parseInt(limit), offset],
-    );
+    const result = await pool.query(query, params);
 
     return success(
       res,
@@ -43,8 +129,6 @@ const getAllProduk = async (req, res) => {
           per_page: parseInt(limit),
           total_data: totalData,
           total_page: totalPage,
-          has_next: parseInt(page) < totalPage,
-          has_prev: parseInt(page) > 1,
         },
       },
       "Products retrieved successfully",

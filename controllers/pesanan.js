@@ -11,21 +11,51 @@ const {
 // GET semua pesanan by pengguna
 const getPesananByPengguna = async (req, res) => {
   const { id_pengguna } = req.params;
+
+  console.log("🔍 getPesananByPengguna called for user:", id_pengguna);
+
   try {
     const result = await pool.query(
       `
-            SELECT p.*, a.nama_penerima, a.kota, v.kode as kode_voucher
-            FROM pesanan p
-            JOIN alamat a ON p.id_alamat = a.id_alamat
-            LEFT JOIN voucher v ON p.id_voucher = v.id_voucher
-            WHERE p.id_pengguna = $1
-            ORDER BY p.created_at DESC
-        `,
+      SELECT 
+        p.*, 
+        a.nama_penerima, 
+        a.kota, 
+        a.alamat,
+        a.telepon,
+        v.kode as kode_voucher
+      FROM pesanan p
+      JOIN alamat a ON p.id_alamat = a.id_alamat
+      LEFT JOIN voucher v ON p.id_voucher = v.id_voucher
+      WHERE p.id_pengguna = $1
+      ORDER BY p.created_at DESC
+      `,
       [id_pengguna],
     );
-    return success(res, result.rows, "Orders retrieved successfully");
+
+    console.log("✅ Orders found:", result.rows.length);
+
+    const ordersWithItems = [];
+    for (const order of result.rows) {
+      const itemsResult = await pool.query(
+        `
+        SELECT ip.*, pr.nama_produk, pr.url_gambar
+        FROM item_pesanan ip
+        JOIN produk pr ON ip.id_produk = pr.id_produk
+        WHERE ip.id_pesanan = $1
+        `,
+        [order.id_pesanan],
+      );
+
+      ordersWithItems.push({
+        ...order,
+        items: itemsResult.rows,
+      });
+    }
+
+    return success(res, ordersWithItems, "Orders retrieved successfully");
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error fetching orders:", err);
     return error(res, "Server error", 500);
   }
 };
@@ -143,7 +173,7 @@ const createPesanan = async (req, res) => {
     const harga_akhir = total_harga - potongan_diskon;
 
     const pesananResult = await client.query(
-      "INSERT INTO pesanan (id_pengguna, id_alamat, id_voucher, total_harga, potongan_diskon, harga_akhir, metode_pembayaran, status_pembayaran) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+      "INSERT INTO pesanan (id_pengguna, id_alamat, id_voucher, total_harga, potongan_diskon, harga_akhir, metode_pembayaran, status_pembayaran, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *",
       [
         id_pengguna,
         id_alamat,
@@ -152,6 +182,7 @@ const createPesanan = async (req, res) => {
         potongan_diskon,
         harga_akhir,
         metode_pembayaran || "transfer",
+        "menunggu",
         "menunggu",
       ],
     );
@@ -213,20 +244,181 @@ const createPesanan = async (req, res) => {
   }
 };
 
-// PUT update status pesanan (seller/admin)
+// ================================================
+// 🔥 UPDATE STATUS SETELAH PEMBAYARAN (OTOMATIS)
+// ================================================
+const updateStatusAfterPayment = async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  console.log("🔍 updateStatusAfterPayment called:", { id, status });
+
+  try {
+    const cekPesanan = await pool.query(
+      "SELECT * FROM pesanan WHERE id_pesanan = $1",
+      [id],
+    );
+
+    if (cekPesanan.rows.length === 0) {
+      return notFound(res, "Pesanan tidak ditemukan");
+    }
+
+    const currentStatus = cekPesanan.rows[0].status;
+    if (currentStatus !== "menunggu") {
+      return badRequest(
+        res,
+        `Status saat ini "${currentStatus}", tidak bisa diupdate`,
+      );
+    }
+
+    const newStatus = status || "diproses";
+
+    const result = await pool.query(
+      "UPDATE pesanan SET status = $1, status_pembayaran = 'sukses', updated_at = CURRENT_TIMESTAMP WHERE id_pesanan = $2 RETURNING *",
+      [newStatus, id],
+    );
+
+    await pool.query(
+      "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
+      [
+        result.rows[0].id_pengguna,
+        "Pembayaran Dikonfirmasi",
+        `Pembayaran untuk pesanan #${id} telah diterima. Pesanan sedang diproses.`,
+        "pesanan",
+      ],
+    );
+
+    return success(
+      res,
+      result.rows[0],
+      "Status pesanan diupdate setelah pembayaran",
+    );
+  } catch (err) {
+    console.error("❌ Error updating status after payment:", err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// ================================================
+// 🔥 BATALKAN PESANAN (oleh pembeli)
+// ================================================
+const cancelPesanan = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.user?.id_pengguna;
+
+  console.log("🔍 cancelPesanan called:", { id, userId });
+
+  try {
+    const cekPesanan = await pool.query(
+      "SELECT * FROM pesanan WHERE id_pesanan = $1",
+      [id],
+    );
+
+    if (cekPesanan.rows.length === 0) {
+      return notFound(res, "Pesanan tidak ditemukan");
+    }
+
+    const pesanan = cekPesanan.rows[0];
+
+    if (pesanan.id_pengguna !== userId) {
+      return forbidden(res, "Anda tidak memiliki akses ke pesanan ini");
+    }
+
+    if (pesanan.status !== "menunggu") {
+      return badRequest(
+        res,
+        `Pesanan dengan status "${pesanan.status}" tidak bisa dibatalkan`,
+      );
+    }
+
+    const result = await pool.query(
+      "UPDATE pesanan SET status = 'dibatalkan', updated_at = CURRENT_TIMESTAMP WHERE id_pesanan = $1 RETURNING *",
+      [id],
+    );
+
+    // KEMBALIKAN STOK
+    const items = await pool.query(
+      "SELECT id_produk, jumlah FROM item_pesanan WHERE id_pesanan = $1",
+      [id],
+    );
+
+    for (const item of items.rows) {
+      await pool.query(
+        "UPDATE produk SET stok = stok + $1 WHERE id_produk = $2",
+        [item.jumlah, item.id_produk],
+      );
+    }
+
+    await pool.query(
+      "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
+      [
+        userId,
+        "Pesanan Dibatalkan",
+        `Pesanan #${id} telah dibatalkan.`,
+        "pesanan",
+      ],
+    );
+
+    return success(res, result.rows[0], "Pesanan berhasil dibatalkan");
+  } catch (err) {
+    console.error("❌ Error canceling order:", err);
+    return error(res, "Server error", 500);
+  }
+};
+
+// ================================================
+// UPDATE STATUS OLEH SELLER/ADMIN
+// ================================================
 const updateStatusPesanan = async (req, res) => {
   const { id } = req.params;
   const { status, nomor_resi } = req.body;
 
+  console.log("🔍 updateStatusPesanan called (seller/admin):", {
+    id,
+    status,
+    nomor_resi,
+  });
+
+  const allowedStatus = ["diproses", "dikirim", "selesai"];
+  if (!allowedStatus.includes(status)) {
+    return badRequest(
+      res,
+      `Status tidak valid. Hanya: ${allowedStatus.join(", ")}`,
+    );
+  }
+
   try {
+    const cekPesanan = await pool.query(
+      "SELECT * FROM pesanan WHERE id_pesanan = $1",
+      [id],
+    );
+
+    if (cekPesanan.rows.length === 0) {
+      return notFound(res, "Pesanan tidak ditemukan");
+    }
+
+    if (cekPesanan.rows[0].status === "menunggu") {
+      return badRequest(
+        res,
+        "Pesanan masih menunggu pembayaran. Harap konfirmasi pembayaran terlebih dahulu.",
+      );
+    }
+
+    const statusOrder = ["menunggu", "diproses", "dikirim", "selesai"];
+    const currentIndex = statusOrder.indexOf(cekPesanan.rows[0].status);
+    const newIndex = statusOrder.indexOf(status);
+
+    if (newIndex < currentIndex) {
+      return badRequest(
+        res,
+        `Tidak bisa mengubah status dari "${cekPesanan.rows[0].status}" ke "${status}" (mundur)`,
+      );
+    }
+
     const result = await pool.query(
       "UPDATE pesanan SET status = $1, nomor_resi = COALESCE($2, nomor_resi), updated_at = CURRENT_TIMESTAMP WHERE id_pesanan = $3 RETURNING *",
       [status, nomor_resi, id],
     );
-
-    if (result.rows.length === 0) {
-      return notFound(res, "Pesanan tidak ditemukan");
-    }
 
     await pool.query(
       "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
@@ -240,7 +432,7 @@ const updateStatusPesanan = async (req, res) => {
 
     return success(res, result.rows[0], "Status pesanan diupdate");
   } catch (err) {
-    console.error(err);
+    console.error("❌ Error updating order status:", err);
     return error(res, "Server error", 500);
   }
 };
@@ -316,6 +508,8 @@ module.exports = {
   getPesananByPengguna,
   getPesananById,
   createPesanan,
+  updateStatusAfterPayment,
+  cancelPesanan,
   updateStatusPesanan,
   updatePembayaran,
   getPesananByToko,

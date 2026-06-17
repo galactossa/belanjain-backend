@@ -13,6 +13,16 @@ router.get("/:id", verifyToken, pesananController.getPesananById);
 router.post("/", verifyToken, pesananController.createPesanan);
 router.put("/:id/pembayaran", verifyToken, pesananController.updatePembayaran);
 
+// 🔥 UPDATE STATUS SETELAH PEMBAYARAN
+router.put(
+  "/:id/payment-status",
+  verifyToken,
+  pesananController.updateStatusAfterPayment,
+);
+
+// 🔥 BATALKAN PESANAN
+router.put("/:id/cancel", verifyToken, pesananController.cancelPesanan);
+
 // Lihat pesanan masuk toko (penjual atau admin)
 router.get(
   "/toko/:id_toko",

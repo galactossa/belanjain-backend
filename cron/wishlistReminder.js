@@ -35,9 +35,7 @@ const sendNotification = async (id_pengguna, judul, pesan, tipe) => {
   }
 };
 
-// =====================================================
 // 1. SMART WISHLIST REMINDER
-// =====================================================
 // Cek produk di wishlist yang sedang diskon
 const checkDiscountedWishlist = async () => {
   console.log("[CRON] Running Smart Wishlist Reminder check...");
@@ -76,7 +74,7 @@ const checkDiscountedWishlist = async () => {
 
       await sendNotification(
         item.id_pengguna,
-        `🔥 Disksn untuk produk favoritmu!`,
+        `🔥 Diskon untuk produk favoritmu!`,
         `Produk "${item.nama_produk}" sedang mendapatkan diskon ${diskonText}! Gunakan kode ${item.voucher_kode} sekarang.`,
         "diskon_wishlist",
       );
@@ -90,9 +88,7 @@ const checkDiscountedWishlist = async () => {
   }
 };
 
-// =====================================================
 // 2. SMART WISHLIST REMINDER (Produk lama di wishlist)
-// =====================================================
 // Cek produk di wishlist yang sudah disimpan lebih dari 7 hari
 const checkOldWishlist = async () => {
   console.log("[CRON] Running Old Wishlist Reminder check...");
@@ -135,9 +131,7 @@ const checkOldWishlist = async () => {
   }
 };
 
-// =====================================================
 // 3. ALERT STOK MENIPIS (Low Stock)
-// =====================================================
 // Cek produk dengan stok di bawah batas minimum
 const checkLowStock = async () => {
   console.log("[CRON] Running Low Stock Alert check...");
@@ -192,9 +186,7 @@ const checkLowStock = async () => {
   }
 };
 
-// =====================================================
 // 4. WISHLIST EXPIRY (Hapus wishlist kadaluarsa)
-// =====================================================
 // Hapus produk dari wishlist yang sudah disimpan lebih dari 30 hari
 const deleteExpiredWishlist = async () => {
   console.log("[CRON] Running Wishlist Expiry deletion...");
@@ -239,9 +231,6 @@ const deleteExpiredWishlist = async () => {
   }
 };
 
-// =====================================================
-// EKSPOR SEMUA FUNGSI
-// =====================================================
 module.exports = {
   checkDiscountedWishlist,
   checkOldWishlist,
