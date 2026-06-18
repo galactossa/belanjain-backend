@@ -8,7 +8,7 @@ const {
   forbidden,
 } = require("../middleware/responseFormatter");
 
-// ================= 🔥 GET SEMUA PESANAN (ADMIN) =================
+// ================= GET SEMUA PESANAN (ADMIN) =================
 const getAllPesanan = async (req, res) => {
   try {
     const result = await pool.query(`
@@ -394,18 +394,15 @@ const cancelPesanan = async (req, res) => {
 };
 
 // ================================================
-// UPDATE STATUS OLEH SELLER/ADMIN
+// 🔥 UPDATE STATUS OLEH SELLER/ADMIN (MANUAL)
 // ================================================
 const updateStatusPesanan = async (req, res) => {
   const { id } = req.params;
   const { status, nomor_resi } = req.body;
 
-  console.log("🔍 updateStatusPesanan called (seller/admin):", {
-    id,
-    status,
-    nomor_resi,
-  });
+  console.log("🔍 updateStatusPesanan called:", { id, status, nomor_resi });
 
+  // 🔥 Validasi status yang diizinkan
   const allowedStatus = ["diproses", "dikirim", "selesai"];
   if (!allowedStatus.includes(status)) {
     return badRequest(
@@ -424,40 +421,71 @@ const updateStatusPesanan = async (req, res) => {
       return notFound(res, "Pesanan tidak ditemukan");
     }
 
-    if (cekPesanan.rows[0].status === "menunggu") {
+    const currentStatus = cekPesanan.rows[0].status;
+
+    // 🔥 VALIDASI 1: Kalau status "dibatalkan", tidak bisa diupdate
+    if (currentStatus === "dibatalkan") {
+      return badRequest(res, "Pesanan sudah dibatalkan, tidak bisa diupdate");
+    }
+
+    // 🔥 VALIDASI 2: Kalau status "menunggu" → hanya bisa ke "diproses"
+    if (currentStatus === "menunggu" && status !== "diproses") {
       return badRequest(
         res,
-        "Pesanan masih menunggu pembayaran. Harap konfirmasi pembayaran terlebih dahulu.",
+        `Pesanan masih menunggu pembayaran. Hanya bisa diubah ke "diproses"`,
       );
     }
 
+    // 🔥 VALIDASI 3: Kalau status "menunggu" dan mau ke "dikirim" → butuh resi
+    if (currentStatus === "menunggu" && status === "dikirim") {
+      if (!nomor_resi) {
+        return badRequest(
+          res,
+          "Untuk mengirim pesanan, nomor resi wajib diisi!",
+        );
+      }
+    }
+
+    // 🔥 VALIDASI 4: Status tidak boleh mundur
     const statusOrder = ["menunggu", "diproses", "dikirim", "selesai"];
-    const currentIndex = statusOrder.indexOf(cekPesanan.rows[0].status);
+    const currentIndex = statusOrder.indexOf(currentStatus);
     const newIndex = statusOrder.indexOf(status);
 
     if (newIndex < currentIndex) {
       return badRequest(
         res,
-        `Tidak bisa mengubah status dari "${cekPesanan.rows[0].status}" ke "${status}" (mundur)`,
+        `Tidak bisa mengubah status dari "${currentStatus}" ke "${status}" (mundur)`,
       );
     }
 
+    // 🔥 VALIDASI 5: Kalau status "dikirim" → resi wajib
+    if (status === "dikirim" && !nomor_resi) {
+      return badRequest(res, "Status 'Dikirim' membutuhkan nomor resi!");
+    }
+
+    // 🔥 UPDATE STATUS
     const result = await pool.query(
-      "UPDATE pesanan SET status = $1, nomor_resi = COALESCE($2, nomor_resi), updated_at = CURRENT_TIMESTAMP WHERE id_pesanan = $3 RETURNING *",
-      [status, nomor_resi, id],
+      `UPDATE pesanan 
+       SET status = $1, 
+           nomor_resi = COALESCE($2, nomor_resi), 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE id_pesanan = $3 
+       RETURNING *`,
+      [status, nomor_resi || null, id],
     );
 
+    // 🔥 KIRIM NOTIFIKASI KE PEMBELI
     await pool.query(
       "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
       [
         result.rows[0].id_pengguna,
-        "Update Status Pesanan",
-        `Pesanan #${id} status: ${status}`,
+        `Update Status Pesanan #${id}`,
+        `Status pesanan Anda telah diupdate menjadi: ${status.toUpperCase()}`,
         "pesanan",
       ],
     );
 
-    return success(res, result.rows[0], "Status pesanan diupdate");
+    return success(res, result.rows[0], "Status pesanan berhasil diupdate");
   } catch (err) {
     console.error("❌ Error updating order status:", err);
     return error(res, "Server error", 500);
@@ -532,7 +560,7 @@ const getPesananByToko = async (req, res) => {
 };
 
 module.exports = {
-  getAllPesanan, // 🔥 TAMBAHKAN INI
+  getAllPesanan,
   getPesananByPengguna,
   getPesananById,
   createPesanan,
