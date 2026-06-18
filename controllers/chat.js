@@ -6,7 +6,7 @@ const {
   badRequest,
 } = require("../middleware/responseFormatter");
 
-// GET riwayat chat antara dua user
+// get riwayat dua chat antara user
 const getChatHistory = async (req, res) => {
   const { user_id, other_id } = req.params;
   const { page = 1, limit = 50 } = req.query;
@@ -41,6 +41,41 @@ const getChatHistory = async (req, res) => {
       [user_id, other_id, parseInt(limit), offset],
     );
 
+    // Format sender_name dengan nama_toko untuk penjual
+    const formattedMessages = [];
+    for (const msg of result.rows) {
+      let senderDisplay = msg.sender_name;
+      let receiverDisplay = msg.receiver_name;
+
+      // Jika sender adalah penjual, ambil nama_toko
+      if (msg.sender_role === "penjual") {
+        const tokoRes = await pool.query(
+          `SELECT nama_toko FROM toko WHERE id_pengguna = $1`,
+          [msg.sender_id],
+        );
+        if (tokoRes.rows.length > 0) {
+          senderDisplay = tokoRes.rows[0].nama_toko;
+        }
+      }
+
+      // Jika receiver adalah penjual, ambil nama_toko
+      if (msg.receiver_role === "penjual") {
+        const tokoRes = await pool.query(
+          `SELECT nama_toko FROM toko WHERE id_pengguna = $1`,
+          [msg.receiver_id],
+        );
+        if (tokoRes.rows.length > 0) {
+          receiverDisplay = tokoRes.rows[0].nama_toko;
+        }
+      }
+
+      formattedMessages.push({
+        ...msg,
+        sender_name: senderDisplay,
+        receiver_name: receiverDisplay,
+      });
+    }
+
     // Tandai pesan yang diterima sebagai sudah dibaca
     await pool.query(
       `UPDATE chat_messages SET is_read = true 
@@ -51,7 +86,7 @@ const getChatHistory = async (req, res) => {
     return success(
       res,
       {
-        data: result.rows,
+        data: formattedMessages,
         pagination: {
           current_page: parseInt(page),
           per_page: parseInt(limit),
@@ -67,7 +102,7 @@ const getChatHistory = async (req, res) => {
   }
 };
 
-// GET daftar chat rooms (user yang pernah chat)
+// get daftar chatrooms
 const getChatRooms = async (req, res) => {
   const { user_id } = req.params;
 
@@ -112,9 +147,21 @@ const getChatRooms = async (req, res) => {
         [room.other_user_id, user_id],
       );
 
+      // Jika other_user adalah penjual, ambil nama_toko
+      let displayName = room.other_user_name;
+      if (room.other_user_role === "penjual") {
+        const tokoRes = await pool.query(
+          `SELECT nama_toko FROM toko WHERE id_pengguna = $1`,
+          [room.other_user_id],
+        );
+        if (tokoRes.rows.length > 0) {
+          displayName = tokoRes.rows[0].nama_toko;
+        }
+      }
+
       rooms.push({
         other_user_id: room.other_user_id,
-        other_user_name: room.other_user_name,
+        other_user_name: displayName, // 🔥 Pakai nama_toko untuk penjual
         other_user_role: room.other_user_role,
         other_user_avatar: room.other_user_avatar,
         last_message: lastMsgRes.rows[0]?.message || null,
@@ -154,6 +201,20 @@ const getUnreadCount = async (req, res) => {
       { unread_count: parseInt(result.rows[0].unread_count) },
       "Unread count retrieved",
     );
+  } catch (err) {
+    console.error(err);
+    return error(res, "Server error", 500);
+  }
+};
+
+const getStoreName = async (req, res) => {
+  const { user_id } = req.params;
+  try {
+    const result = await pool.query(
+      `SELECT nama_toko FROM toko WHERE id_pengguna = $1`,
+      [user_id],
+    );
+    return success(res, result.rows[0] || null, "Store name retrieved");
   } catch (err) {
     console.error(err);
     return error(res, "Server error", 500);
