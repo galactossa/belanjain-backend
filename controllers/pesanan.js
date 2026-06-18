@@ -38,7 +38,6 @@ const getAllPesanan = async (req, res) => {
 // GET semua pesanan by pengguna
 const getPesananByPengguna = async (req, res) => {
   const { id_pengguna } = req.params;
-
   console.log("🔍 getPesananByPengguna called for user:", id_pengguna);
 
   try {
@@ -394,15 +393,54 @@ const cancelPesanan = async (req, res) => {
 };
 
 // ================================================
-// 🔥 UPDATE STATUS OLEH SELLER/ADMIN (MANUAL)
+// 🔥 UPDATE STATUS OLEH SELLER/ADMIN/CUSTOMER
 // ================================================
+// controllers/pesanan.js - updateStatusPesanan
+
 const updateStatusPesanan = async (req, res) => {
   const { id } = req.params;
   const { status, nomor_resi } = req.body;
 
-  console.log("🔍 updateStatusPesanan called:", { id, status, nomor_resi });
+  // 🔥 PERBAIKAN: Ambil dari req.user
+  const userRole = req.user?.role || "pembeli";
+  const userId = req.user?.id_pengguna || req.user?.id;
 
-  // 🔥 Validasi status yang diizinkan
+  console.log("🔍 updateStatusPesanan called:", {
+    id,
+    status,
+    nomor_resi,
+    userRole,
+    userId,
+  });
+
+  // 🔥 VALIDASI 1: Status "selesai" hanya untuk pemilik pesanan
+  if (status === "selesai") {
+    const cekPesanan = await pool.query(
+      "SELECT id_pengguna FROM pesanan WHERE id_pesanan = $1",
+      [id],
+    );
+    if (cekPesanan.rows.length === 0) {
+      return notFound(res, "Pesanan tidak ditemukan");
+    }
+    if (cekPesanan.rows[0].id_pengguna !== userId) {
+      return forbidden(res, "Hanya pembeli yang bisa menyelesaikan pesanan");
+    }
+    // Customer hanya bisa ubah dari "dikirim" ke "selesai"
+    const currentStatus = cekPesanan.rows[0].status;
+    if (currentStatus !== "dikirim") {
+      return badRequest(
+        res,
+        `Pesanan status "${currentStatus}", tunggu sampai dikirim`,
+      );
+    }
+  }
+
+  // 🔥 VALIDASI 2: Customer hanya boleh akses status "selesai"
+  if (userRole === "pembeli" && status !== "selesai") {
+    return forbidden(res, "Pembeli hanya bisa menyelesaikan pesanan");
+  }
+
+  // 🔥 VALIDASI 3: Status yang diizinkan
   const allowedStatus = ["diproses", "dikirim", "selesai"];
   if (!allowedStatus.includes(status)) {
     return badRequest(
@@ -423,47 +461,27 @@ const updateStatusPesanan = async (req, res) => {
 
     const currentStatus = cekPesanan.rows[0].status;
 
-    // 🔥 VALIDASI 1: Kalau status "dibatalkan", tidak bisa diupdate
     if (currentStatus === "dibatalkan") {
       return badRequest(res, "Pesanan sudah dibatalkan, tidak bisa diupdate");
     }
 
-    // 🔥 VALIDASI 2: Kalau status "menunggu" → hanya bisa ke "diproses"
-    if (currentStatus === "menunggu" && status !== "diproses") {
-      return badRequest(
-        res,
-        `Pesanan masih menunggu pembayaran. Hanya bisa diubah ke "diproses"`,
-      );
-    }
-
-    // 🔥 VALIDASI 3: Kalau status "menunggu" dan mau ke "dikirim" → butuh resi
-    if (currentStatus === "menunggu" && status === "dikirim") {
-      if (!nomor_resi) {
+    // 🔥 Seller/Admin: cek tidak boleh mundur
+    if (userRole !== "pembeli") {
+      const statusOrder = ["menunggu", "diproses", "dikirim", "selesai"];
+      const currentIndex = statusOrder.indexOf(currentStatus);
+      const newIndex = statusOrder.indexOf(status);
+      if (newIndex < currentIndex) {
         return badRequest(
           res,
-          "Untuk mengirim pesanan, nomor resi wajib diisi!",
+          `Tidak bisa mengubah status dari "${currentStatus}" ke "${status}" (mundur)`,
         );
       }
     }
 
-    // 🔥 VALIDASI 4: Status tidak boleh mundur
-    const statusOrder = ["menunggu", "diproses", "dikirim", "selesai"];
-    const currentIndex = statusOrder.indexOf(currentStatus);
-    const newIndex = statusOrder.indexOf(status);
-
-    if (newIndex < currentIndex) {
-      return badRequest(
-        res,
-        `Tidak bisa mengubah status dari "${currentStatus}" ke "${status}" (mundur)`,
-      );
-    }
-
-    // 🔥 VALIDASI 5: Kalau status "dikirim" → resi wajib
     if (status === "dikirim" && !nomor_resi) {
       return badRequest(res, "Status 'Dikirim' membutuhkan nomor resi!");
     }
 
-    // 🔥 UPDATE STATUS
     const result = await pool.query(
       `UPDATE pesanan 
        SET status = $1, 
@@ -474,7 +492,6 @@ const updateStatusPesanan = async (req, res) => {
       [status, nomor_resi || null, id],
     );
 
-    // 🔥 KIRIM NOTIFIKASI KE PEMBELI
     await pool.query(
       "INSERT INTO notifikasi (id_pengguna, judul, pesan, tipe) VALUES ($1, $2, $3, $4)",
       [

@@ -3,7 +3,7 @@ const router = express.Router();
 const pesananController = require("../controllers/pesanan");
 const { verifyToken, checkRole } = require("../middleware/auth");
 
-// ================= 🔥 GET SEMUA PESANAN (ADMIN) =================
+// ================= GET SEMUA PESANAN (ADMIN) =================
 router.get(
   "/",
   verifyToken,
@@ -39,12 +39,9 @@ router.get(
   pesananController.getPesananByToko,
 );
 
-// Update status pesanan (penjual atau admin)
-router.put(
-  "/:id/status",
-  verifyToken,
-  checkRole(["penjual", "admin"]),
-  pesananController.updateStatusPesanan,
-);
+// ================= 🔥 UPDATE STATUS PESANAN =================
+// 🔥 PERBAIKAN: HANYA verifyToken, TANPA checkRole
+// Karena validasi role sudah di controller
+router.put("/:id/status", verifyToken, pesananController.updateStatusPesanan);
 
 module.exports = router;
