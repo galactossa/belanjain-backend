@@ -1,13 +1,12 @@
 const { Pool } = require("pg");
 require("dotenv").config();
 
-// Konfigurasi database lokal
+// 🔥 PAKAI DATABASE_URL DARI ENVIRONMENT (RAILWAY)
 const pool = new Pool({
-  user: "postgres",
-  host: "localhost",
-  database: "BelanjaIn1",
-  password: "toraeld8",
-  port: 5432,
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false, // PENTING UNTUK RAILWAY
+  },
 });
 
 module.exports = pool;
