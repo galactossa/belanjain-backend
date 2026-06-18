@@ -40,10 +40,18 @@ const getAlamatById = async (req, res) => {
   }
 };
 
-// POST tambah alamat
+// ================= 🔥 PERBAIKAN: POST tambah alamat =================
 const createAlamat = async (req, res) => {
-  const { id_pengguna, nama_penerima, telepon, alamat, kota, kode_pos, utama } =
-    req.body;
+  const {
+    id_pengguna,
+    nama_penerima,
+    telepon,
+    alamat,
+    kota,
+    kode_pos,
+    label,
+    utama,
+  } = req.body;
 
   if (!id_pengguna || !nama_penerima || !telepon || !alamat || !kota) {
     return badRequest(res, "Semua field wajib diisi");
@@ -58,7 +66,8 @@ const createAlamat = async (req, res) => {
     }
 
     const result = await pool.query(
-      "INSERT INTO alamat (id_pengguna, nama_penerima, telepon, alamat, kota, kode_pos, utama) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+      `INSERT INTO alamat (id_pengguna, nama_penerima, telepon, alamat, kota, kode_pos, label, utama) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [
         id_pengguna,
         nama_penerima,
@@ -66,6 +75,7 @@ const createAlamat = async (req, res) => {
         alamat,
         kota,
         kode_pos,
+        label || "Rumah",
         utama || false,
       ],
     );
@@ -76,10 +86,11 @@ const createAlamat = async (req, res) => {
   }
 };
 
-// PUT update alamat
+// ================= 🔥 PERBAIKAN: PUT update alamat =================
 const updateAlamat = async (req, res) => {
   const { id } = req.params;
-  const { nama_penerima, telepon, alamat, kota, kode_pos, utama } = req.body;
+  const { nama_penerima, telepon, alamat, kota, kode_pos, label, utama } =
+    req.body;
 
   try {
     if (utama) {
@@ -96,8 +107,17 @@ const updateAlamat = async (req, res) => {
     }
 
     const result = await pool.query(
-      "UPDATE alamat SET nama_penerima = COALESCE($1, nama_penerima), telepon = COALESCE($2, telepon), alamat = COALESCE($3, alamat), kota = COALESCE($4, kota), kode_pos = COALESCE($5, kode_pos), utama = COALESCE($6, utama), updated_at = CURRENT_TIMESTAMP WHERE id_alamat = $7 RETURNING *",
-      [nama_penerima, telepon, alamat, kota, kode_pos, utama, id],
+      `UPDATE alamat SET 
+        nama_penerima = COALESCE($1, nama_penerima), 
+        telepon = COALESCE($2, telepon), 
+        alamat = COALESCE($3, alamat), 
+        kota = COALESCE($4, kota), 
+        kode_pos = COALESCE($5, kode_pos), 
+        label = COALESCE($6, label),
+        utama = COALESCE($7, utama), 
+        updated_at = CURRENT_TIMESTAMP 
+      WHERE id_alamat = $8 RETURNING *`,
+      [nama_penerima, telepon, alamat, kota, kode_pos, label, utama, id],
     );
     if (result.rows.length === 0) {
       return notFound(res, "Alamat tidak ditemukan");
