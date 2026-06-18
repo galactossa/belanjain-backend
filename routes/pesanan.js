@@ -3,6 +3,14 @@ const router = express.Router();
 const pesananController = require("../controllers/pesanan");
 const { verifyToken, checkRole } = require("../middleware/auth");
 
+// ================= 🔥 GET SEMUA PESANAN (ADMIN) =================
+router.get(
+  "/",
+  verifyToken,
+  checkRole(["admin"]),
+  pesananController.getAllPesanan,
+);
+
 // Semua endpoint pesanan butuh login
 router.get(
   "/pengguna/:id_pengguna",

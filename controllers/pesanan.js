@@ -8,6 +8,33 @@ const {
   forbidden,
 } = require("../middleware/responseFormatter");
 
+// ================= 🔥 GET SEMUA PESANAN (ADMIN) =================
+const getAllPesanan = async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        p.*, 
+        a.nama_penerima, 
+        a.kota, 
+        a.alamat,
+        a.telepon,
+        v.kode as kode_voucher,
+        u.nama as pembeli_nama,
+        u.email as pembeli_email
+      FROM pesanan p
+      JOIN alamat a ON p.id_alamat = a.id_alamat
+      LEFT JOIN voucher v ON p.id_voucher = v.id_voucher
+      JOIN pengguna u ON p.id_pengguna = u.id_pengguna
+      ORDER BY p.created_at DESC
+    `);
+
+    return success(res, result.rows, "All orders retrieved successfully");
+  } catch (err) {
+    console.error("❌ Error fetching all orders:", err);
+    return error(res, "Server error", 500);
+  }
+};
+
 // GET semua pesanan by pengguna
 const getPesananByPengguna = async (req, res) => {
   const { id_pengguna } = req.params;
@@ -505,6 +532,7 @@ const getPesananByToko = async (req, res) => {
 };
 
 module.exports = {
+  getAllPesanan, // 🔥 TAMBAHKAN INI
   getPesananByPengguna,
   getPesananById,
   createPesanan,

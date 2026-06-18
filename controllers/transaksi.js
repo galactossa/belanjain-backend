@@ -8,12 +8,11 @@ const {
 
 // ================= GET SEMUA TRANSAKSI UNTUK ADMIN =================
 const getAllTransaksi = async (req, res) => {
-  const { role, page = 1, limit = 10 } = req.query;
+  // 🔥 PERBAIKI: Hapus validasi role dari query (sudah dicek di middleware)
+  // const { role } = req.query;  // ❌ HAPUS INI
+  // if (role !== "admin") { ... } // ❌ HAPUS INI
 
-  if (role !== "admin") {
-    return forbidden(res, "Hanya admin yang bisa melihat semua transaksi");
-  }
-
+  const { page = 1, limit = 10 } = req.query;
   const offset = (parseInt(page) - 1) * parseInt(limit);
 
   try {
