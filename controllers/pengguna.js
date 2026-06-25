@@ -139,7 +139,7 @@ const register = async (req, res) => {
   }
 };
 
-// POST login
+// ================= LOGIN =================
 const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -166,16 +166,24 @@ const login = async (req, res) => {
       return forbidden(res, "Akun anda telah dinonaktifkan");
     }
 
+    // 🔥 PASTIKAN ROLE DISIMPAN DI TOKEN
     const token = jwt.sign(
       {
         id: pengguna.id_pengguna,
         id_pengguna: pengguna.id_pengguna,
         email: pengguna.email,
-        role: pengguna.role,
+        role: pengguna.role, // <-- INI PENTING!
       },
       JWT_SECRET,
       { expiresIn: "7d" },
     );
+
+    console.log("🔍 Login - Token generated with role:", pengguna.role);
+    console.log("🔍 Login - Token payload:", {
+      id: pengguna.id_pengguna,
+      email: pengguna.email,
+      role: pengguna.role,
+    });
 
     return success(
       res,

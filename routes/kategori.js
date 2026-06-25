@@ -7,6 +7,7 @@ const { verifyToken, checkRole } = require("../middleware/auth");
 router.get("/", kategoriController.getAllKategori);
 router.get("/:id", kategoriController.getKategoriById);
 
+// ================= 🔥 PROTECTED ROUTES =================
 // Hanya admin yang bisa tambah/edit/hapus kategori
 router.post(
   "/",
@@ -14,12 +15,14 @@ router.post(
   checkRole(["admin"]),
   kategoriController.createKategori,
 );
+
 router.put(
   "/:id",
   verifyToken,
   checkRole(["admin"]),
   kategoriController.updateKategori,
 );
+
 router.delete(
   "/:id",
   verifyToken,

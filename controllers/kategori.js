@@ -39,14 +39,11 @@ const getKategoriById = async (req, res) => {
   }
 };
 
-// POST tambah kategori (admin only)
+// ================= 🔥 POST tambah kategori =================
 const createKategori = async (req, res) => {
   const { nama_kategori } = req.body;
-  const { role } = req.query;
 
-  if (role !== "admin") {
-    return forbidden(res, "Hanya admin yang bisa menambah kategori");
-  }
+  console.log("🔍 createKategori called, req.user:", req.user);
 
   if (!nama_kategori) {
     return badRequest(res, "Nama kategori wajib diisi");
@@ -64,15 +61,12 @@ const createKategori = async (req, res) => {
   }
 };
 
-// PUT update kategori (admin only)
+// ================= 🔥 PUT update kategori =================
 const updateKategori = async (req, res) => {
   const { id } = req.params;
   const { nama_kategori } = req.body;
-  const { role } = req.query;
 
-  if (role !== "admin") {
-    return forbidden(res, "Hanya admin yang bisa mengupdate kategori");
-  }
+  console.log("🔍 updateKategori called, req.user:", req.user);
 
   if (!nama_kategori) {
     return badRequest(res, "Nama kategori wajib diisi");
@@ -93,14 +87,11 @@ const updateKategori = async (req, res) => {
   }
 };
 
-// DELETE kategori (admin only)
+// ================= 🔥 DELETE kategori =================
 const deleteKategori = async (req, res) => {
   const { id } = req.params;
-  const { role } = req.query;
 
-  if (role !== "admin") {
-    return forbidden(res, "Hanya admin yang bisa menghapus kategori");
-  }
+  console.log("🔍 deleteKategori called, req.user:", req.user);
 
   try {
     const cek = await pool.query(
