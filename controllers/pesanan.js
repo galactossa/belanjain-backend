@@ -271,7 +271,7 @@ const createPesanan = async (req, res) => {
 };
 
 // ================================================
-// 🔥 UPDATE STATUS SETELAH PEMBAYARAN (OTOMATIS)
+// UPDATE STATUS SETELAH PEMBAYARAN (OTOMATIS)
 // ================================================
 const updateStatusAfterPayment = async (req, res) => {
   const { id } = req.params;
@@ -326,11 +326,11 @@ const updateStatusAfterPayment = async (req, res) => {
 };
 
 // ================================================
-// 🔥 BATALKAN PESANAN (oleh pembeli)
+// 🔥 BATALKAN PESANAN - IZINKAN MENUNGGU & DIPROSES
 // ================================================
 const cancelPesanan = async (req, res) => {
   const { id } = req.params;
-  const userId = req.user?.id_pengguna;
+  const userId = req.user?.id_pengguna || req.user?.id;
 
   console.log("🔍 cancelPesanan called:", { id, userId });
 
@@ -350,7 +350,9 @@ const cancelPesanan = async (req, res) => {
       return forbidden(res, "Anda tidak memiliki akses ke pesanan ini");
     }
 
-    if (pesanan.status !== "menunggu") {
+    // 🔥 IZINKAN STATUS "menunggu" dan "diproses"
+    const statusLower = (pesanan.status || "").toLowerCase();
+    if (statusLower !== "menunggu" && statusLower !== "diproses") {
       return badRequest(
         res,
         `Pesanan dengan status "${pesanan.status}" tidak bisa dibatalkan`,
@@ -392,6 +394,9 @@ const cancelPesanan = async (req, res) => {
   }
 };
 
+// ================================================
+// 🔥 UPDATE STATUS PESANAN (DIPERBAIKI)
+// ================================================
 const updateStatusPesanan = async (req, res) => {
   const { id } = req.params;
   const { status, nomor_resi } = req.body;
@@ -406,10 +411,18 @@ const updateStatusPesanan = async (req, res) => {
     userId,
   });
 
+  // 🔥 Validasi: Customer hanya boleh akses status "selesai" atau "komplain"
+  if (userRole === "pembeli" && status !== "selesai" && status !== "komplain") {
+    return forbidden(
+      res,
+      "Pembeli hanya bisa menyelesaikan atau mengomplain pesanan",
+    );
+  }
+
   // 🔥 VALIDASI: Status "selesai" hanya untuk pemilik pesanan
   if (status === "selesai") {
     const cekPesanan = await pool.query(
-      "SELECT id_pengguna, status FROM pesanan WHERE id_pesanan = $1", // 🔥 AMBIL STATUS JUGA
+      "SELECT id_pengguna, status FROM pesanan WHERE id_pesanan = $1",
       [id],
     );
 
@@ -418,15 +431,12 @@ const updateStatusPesanan = async (req, res) => {
     }
 
     const pesanan = cekPesanan.rows[0];
-    console.log("🔍 Pesanan ditemukan:", pesanan);
 
-    // 🔥 CEK APAKAH PEMBELI YANG MEMILIKI PESANAN
     if (pesanan.id_pengguna !== userId) {
       return forbidden(res, "Hanya pembeli yang bisa menyelesaikan pesanan");
     }
 
-    // 🔥 CEK APAKAH STATUS SEKARANG "dikirim"
-    const currentStatus = pesanan.status || "menunggu"; // 🔥 FALLBACK
+    const currentStatus = pesanan.status || "menunggu";
     if (currentStatus !== "dikirim") {
       return badRequest(
         res,
@@ -435,13 +445,34 @@ const updateStatusPesanan = async (req, res) => {
     }
   }
 
-  // 🔥 Validasi: Customer hanya boleh akses status "selesai"
-  if (userRole === "pembeli" && status !== "selesai") {
-    return forbidden(res, "Pembeli hanya bisa menyelesaikan pesanan");
+  // 🔥 VALIDASI: Status "komplain" hanya untuk pemilik pesanan
+  if (status === "komplain") {
+    const cekPesanan = await pool.query(
+      "SELECT id_pengguna, status FROM pesanan WHERE id_pesanan = $1",
+      [id],
+    );
+
+    if (cekPesanan.rows.length === 0) {
+      return notFound(res, "Pesanan tidak ditemukan");
+    }
+
+    const pesanan = cekPesanan.rows[0];
+
+    if (pesanan.id_pengguna !== userId) {
+      return forbidden(res, "Hanya pembeli yang bisa mengomplain pesanan");
+    }
+
+    const currentStatus = pesanan.status || "menunggu";
+    if (currentStatus !== "selesai") {
+      return badRequest(
+        res,
+        `Pesanan status "${currentStatus}", hanya pesanan selesai yang bisa dikomplain`,
+      );
+    }
   }
 
   // 🔥 Validasi status yang diizinkan
-  const allowedStatus = ["diproses", "dikirim", "selesai"];
+  const allowedStatus = ["diproses", "dikirim", "selesai", "komplain"];
   if (!allowedStatus.includes(status)) {
     return badRequest(
       res,
@@ -459,14 +490,14 @@ const updateStatusPesanan = async (req, res) => {
       return notFound(res, "Pesanan tidak ditemukan");
     }
 
-    const currentStatus = cekPesanan.rows[0].status || "menunggu"; // 🔥 FALLBACK
+    const currentStatus = cekPesanan.rows[0].status || "menunggu";
 
     if (currentStatus === "dibatalkan") {
       return badRequest(res, "Pesanan sudah dibatalkan, tidak bisa diupdate");
     }
 
-    // 🔥 Seller/Admin: cek tidak boleh mundur
-    if (userRole !== "pembeli") {
+    // 🔥 Seller/Admin: cek tidak boleh mundur (kecuali ke komplain)
+    if (userRole !== "pembeli" && status !== "komplain") {
       const statusOrder = ["menunggu", "diproses", "dikirim", "selesai"];
       const currentIndex = statusOrder.indexOf(currentStatus);
       const newIndex = statusOrder.indexOf(status);

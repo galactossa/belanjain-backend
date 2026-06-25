@@ -21,14 +21,14 @@ router.get("/:id", verifyToken, pesananController.getPesananById);
 router.post("/", verifyToken, pesananController.createPesanan);
 router.put("/:id/pembayaran", verifyToken, pesananController.updatePembayaran);
 
-// 🔥 UPDATE STATUS SETELAH PEMBAYARAN
+// UPDATE STATUS SETELAH PEMBAYARAN
 router.put(
   "/:id/payment-status",
   verifyToken,
   pesananController.updateStatusAfterPayment,
 );
 
-// 🔥 BATALKAN PESANAN
+// 🔥 BATALKAN PESANAN - IZINKAN MENUNGGU & DIPROSES
 router.put("/:id/cancel", verifyToken, pesananController.cancelPesanan);
 
 // Lihat pesanan masuk toko (penjual atau admin)
@@ -39,9 +39,7 @@ router.get(
   pesananController.getPesananByToko,
 );
 
-// ================= 🔥 UPDATE STATUS PESANAN =================
-// 🔥 PERBAIKAN: HANYA verifyToken, TANPA checkRole
-// Karena validasi role sudah di controller
+// UPDATE STATUS PESANAN
 router.put("/:id/status", verifyToken, pesananController.updateStatusPesanan);
 
 module.exports = router;
