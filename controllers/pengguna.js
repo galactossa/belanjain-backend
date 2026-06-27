@@ -281,7 +281,7 @@ const getPenggunaByRole = async (req, res) => {
   }
 };
 
-// UPLOAD foto profil
+// UPLOAD foto profil (FIXED)
 const uploadFotoProfil = async (req, res) => {
   const { id } = req.params;
 
@@ -290,9 +290,8 @@ const uploadFotoProfil = async (req, res) => {
   }
 
   try {
-    // 🔥 Gunakan path yang benar untuk akses dari frontend
-    const baseUrl = process.env.BASE_URL || "http://localhost:3000";
-    const imageUrl = `${baseUrl}/uploads/${req.file.filename}`;
+    // 🔥 PAKAI RELATIVE PATH SAJA (BUKAN LOCALHOST)
+    const imageUrl = `/uploads/${req.file.filename}`;
 
     const result = await pool.query(
       "UPDATE pengguna SET url_foto = $1, updated_at = CURRENT_TIMESTAMP WHERE id_pengguna = $2 RETURNING id_pengguna, nama, email, url_foto",

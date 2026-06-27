@@ -72,11 +72,11 @@ const produkRoutes = require("./routes/produk");
 const wishlistRoutes = require("./routes/wishlist");
 const keranjangRoutes = require("./routes/keranjang");
 const voucherRoutes = require("./routes/voucher");
-const pesananRoutes = require("./routes/pesanan"); // ✅ PASTIKAN ADA
+const pesananRoutes = require("./routes/pesanan");
 const ulasanRoutes = require("./routes/ulasan");
 const notifikasiRoutes = require("./routes/notifikasi");
 const laporanRoutes = require("./routes/laporan");
-const transaksiRoutes = require("./routes/transaksi"); // ✅ PASTIKAN ADA
+const transaksiRoutes = require("./routes/transaksi");
 const statistikRoutes = require("./routes/statistik");
 const trustScoreRoutes = require("./routes/trustScore");
 const adminRoutes = require("./routes/admin");
@@ -103,11 +103,11 @@ app.use("/api/produk", produkRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/keranjang", keranjangRoutes);
 app.use("/api/voucher", voucherRoutes);
-app.use("/api/pesanan", pesananRoutes); // ✅ PASTIKAN ADA
+app.use("/api/pesanan", pesananRoutes);
 app.use("/api/ulasan", ulasanRoutes);
 app.use("/api/notifikasi", notifikasiRoutes);
 app.use("/api/laporan", laporanRoutes);
-app.use("/api/transaksi", transaksiRoutes); // ✅ PASTIKAN ADA
+app.use("/api/transaksi", transaksiRoutes);
 app.use("/api/statistik", statistikRoutes);
 app.use("/api/trust-score", trustScoreRoutes);
 app.use("/api/admin", adminRoutes);
